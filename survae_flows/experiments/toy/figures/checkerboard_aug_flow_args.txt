@@ -1,0 +1,26 @@
++---------------+--------------+
+|      Arg      |    Value     |
++---------------+--------------+
+|    dataset    | checkerboard |
+| train_samples |    128000    |
+|  test_samples |    128000    |
+|   num_flows   |      4       |
+|    actnorm    |    False     |
+|     affine    |     True     |
+|    scale_fn   |   softplus   |
+|  hidden_units |     [50]     |
+|   activation  |     relu     |
+|     augdim    |      2       |
+|     epochs    |      10      |
+|   batch_size  |     128      |
+|   optimizer   |     adam     |
+|       lr      |    0.001     |
+|     device    |     cpu      |
+|       k       |      10      |
+|      kbs      |     None     |
+|  num_samples  |    128000    |
+|   grid_size   |     500      |
+|     pixels    |     1000     |
+|      dpi      |      96      |
+|      clim     |     0.05     |
++---------------+--------------+
