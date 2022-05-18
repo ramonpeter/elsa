@@ -2,18 +2,18 @@ import torch
 import torch.nn as nn
 from torch.optim import Adam
 
-from survae_flows.survae.flows import Flow
-from survae_flows.survae.distributions import StandardNormal
-from survae_flows.survae.transforms.bijections.coupling import AdditiveCouplingBijection, AffineCouplingBijection, RationalQuadraticSplineCouplingBijection, LinearSplineCouplingBijection
-from survae_flows.survae.transforms import Reverse, Augment
-from survae_flows.survae.nn.nets import MLP
-from survae_flows.survae.nn.layers import ElementwiseParams, LambdaLayer, scale_fn
+from elsa.modules.survae.flows import Flow
+from elsa.modules.survae.distributions import StandardNormal
+from elsa.modules.survae.transforms.bijections.coupling import AdditiveCouplingBijection, AffineCouplingBijection, RationalQuadraticSplineCouplingBijection, LinearSplineCouplingBijection
+from elsa.modules.survae.transforms import Reverse, Augment
+from elsa.modules.survae.nn.nets import MLP
+from elsa.modules.survae.nn.layers import ElementwiseParams, LambdaLayer, scale_fn
 
 import config_LSR as c
 
 device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
 
-class INN:
+class BaseFlow(nn.Module):
 	def __init__(self, in_dim=2, aug_dim=0, elwise_params=2, n_blocks=1, internal_size=16, n_layers=1, init_zeros=False, dropout=False):
 
 		self.in_dim = in_dim
@@ -32,7 +32,7 @@ class INN:
 
 		hidden_units = [c.n_units for _ in range(self.n_layers)]
 
-		transforms = [Augment(StandardNormal((self.aug_dim,)), x_size=self.in_dim)]
+		transforms = []
 		for _ in range(c.n_blocks):
 			'''
 			net = nn.Sequential(MLP(A//2, P*A//2, 
@@ -69,6 +69,9 @@ class INN:
 			step_size=1,
 			gamma = c.gamma
 			)
+  
+	def forward(self, z):
+		return self.model.sample_custom(z)
 
 	def save(self, name):
 		torch.save({'opt':self.optim.state_dict(),

@@ -1,11 +1,11 @@
-from utils.train_utils import *
-from utils.plotting.distributions import *
-from utils.plotting.plots import *
-from load_data import *
+from elsa.utils.train_utils import *
+from elsa.utils.plotting.distributions import *
+from elsa.utils.plotting.plots import *
+from elsa.load_data import *
 
 from survae_model import INN
 from GAN_models import netD
-from mcmc import HamiltonMCMC
+from elsa.mcmc import HamiltonMCMC
 
 import sys, os
 
