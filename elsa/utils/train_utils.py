@@ -1,15 +1,12 @@
-import torch
+""" Train utils """
 
+import torch
 import pandas as pd
 import numpy as np
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-EPSILON = 1.e-8
 
-
-# ======================================================================================================================
-class AverageMeter(object):
-	""" Computes ans stores the average and current value"""
+class AverageMeter():
+	""" Computes and stores the average and current value of the loss"""
 
 	def __init__(self):
 		self.reset()

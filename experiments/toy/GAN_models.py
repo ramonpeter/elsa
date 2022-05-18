@@ -5,10 +5,11 @@ import numpy as np
 
 import config_LSR as c
 
-device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
+# Put this into main file and just feed information into the network
+device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
 
 #----------------------------------------------------------------------
-# Generators
+# Generator
 #----------------------------------------------------------------------
 
 class netG(nn.Module):
@@ -67,7 +68,7 @@ class netG(nn.Module):
 					'net': self.state_dict()}, name)
 
 #----------------------------------------------------------------------
-# Discriminators
+# Discriminator
 #----------------------------------------------------------------------
 
 class netD(nn.Module):

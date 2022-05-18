@@ -32,20 +32,23 @@ class Flow(Distribution):
 		return log_prob
 
 	def sample(self, num_samples):
+		# Modified to also return the latent
 		z = self.base_dist.sample(num_samples)
-		z_copy = z
+		latent = z
 		for transform in reversed(self.transforms):
 			z = transform.inverse(z)
-		return z, z_copy
+		return z, latent
 
-	def sample_custom(self, x):
+	def sample_refined(self, z):
+		# sample from refine latent space
 		for transform in reversed(self.transforms):
-			x = transform.inverse(x)
-		return x
+			z = transform.inverse(z)
+		return z
 
 	def encode(self, x):
+		# Added to also just give the forward pass
 		for transform in self.transforms:
-			x, ldj = transform(x)
+			x, _ = transform(x)
 		return x
 
 	def sample_with_log_prob(self, num_samples):

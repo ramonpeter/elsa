@@ -63,5 +63,5 @@ train = True
 save_model = True
 load_model = False
 
-save_dir = './experiments'
+save_dir = './results'
 checkpoint_on_error = False

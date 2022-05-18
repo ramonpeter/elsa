@@ -2,8 +2,8 @@
 # Imports
 ############################################
 
-from utils.plotting.plots import *
-from utils.observables import Observable
+from elsa.utils.plotting.plots import *
+from elsa.utils.observables import Observable
 
 import numpy as np
 

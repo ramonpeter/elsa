@@ -1,19 +1,19 @@
-######################
-# Choose dataset: #
-######################
+##################
+# Choose dataset #
+##################
 
-dataset = 'circles'
+dataset = 'circles' # eight_gaussians, pinwheel
 
-#########
-# Data: #
-#########
+########
+# Data #
+########
 
 weighted = False
 scaler   = 1.
 
-##############
-# Training:  #
-##############
+############
+# Training #
+############
 
 lr = 1e-3
 lr_ref = 1e-3
@@ -30,9 +30,9 @@ n_its_per_epoch_ref = 1
 
 mmd = False
 
-#################
-# Architecture: #
-#################
+################
+# Architecture #
+################
 
 n_blocks = 8
 n_units  = 32
@@ -44,9 +44,9 @@ n_layers_disc = 3
 
 latent_dim_gen = 2 #for LSRGAN
 
-####################
-# Logging/preview: #
-####################
+###################
+# Logging/preview #
+###################
 
 loss_names = ['L', 'L_rev']
 progress_bar = True
@@ -54,9 +54,9 @@ progress_bar = True
 show_interval = 50
 save_interval = 50
 
-###################
-# Loading/saving: #
-###################
+##################
+# Loading/saving #
+##################
 
 test = False
 train = True

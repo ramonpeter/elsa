@@ -1,7 +1,8 @@
-from utils.train_utils import *
-from utils.observables import *
+""" Data loader functions"""
 
 import os
+import torch
+import numpy as np
 import pandas as pd
 
 def read_files(DATAPATH, dataset, verbose=True):
@@ -14,7 +15,7 @@ def read_files(DATAPATH, dataset, verbose=True):
 
 	return events
 
-def Loader(dataset, batch_size, test, scaler, weighted):
+def Loader(dataset, batch_size, test, scaler, weighted, device):
 
 	datapath = './data/'
 	data = read_files(datapath, dataset)	
@@ -31,7 +32,6 @@ def Loader(dataset, batch_size, test, scaler, weighted):
 	"""Select a single global scale or one for each direction""" 
 	#scales = np.std(events)
 	if weighted:
-		#scales = np.std(events,0)
 		scales = np.std(events[:,:-1],0)
 	else:
 		scales = np.std(events,0)
