@@ -29,5 +29,5 @@ Download + Install
    # clone the repository
    git clone https://github.com/ramonpeter/ELSA.git
    # then install in dev mode
-   cd MadML
+   cd ELSA
    python setup.py develop
