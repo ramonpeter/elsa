@@ -1,8 +1,9 @@
 #!/bin/bash
 
-python datasets/get_lhc_data.py
+cd datasets/lhc
+python get_lhc_data.py
 
-cd datasets/toy
+cd ../toy
 python generate_8gaussians.py
 python generate_circles.py
 python generate_pinwheel.py
