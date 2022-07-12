@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from torch.optim import Adam
 
 from survae.flows import Flow
 from survae.distributions import StandardNormal
@@ -19,7 +18,7 @@ import config_LSR as c
 device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
 
 
-class AugFlow(nn.Module):
+class AugFlow:
     def __init__(
         self,
         in_dim=2,
@@ -30,10 +29,11 @@ class AugFlow(nn.Module):
         n_layers=1,
         init_zeros=False,
         dropout=False,
-    ):
-
+        actnorm = False,
+    ):  
         self.in_dim = in_dim
         self.aug_dim = aug_dim
+        self.actnorm = actnorm
         assert aug_dim % 2 == 0
         self.elwise_params = elwise_params
         self.n_blocks = n_blocks
@@ -86,7 +86,7 @@ class AugFlow(nn.Module):
         )
 
     def forward(self, z):
-        return self.model.sample_custom(z)
+        return self.model.sample_refined(z)
 
     def save(self, name):
         torch.save(

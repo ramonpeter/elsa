@@ -10,14 +10,14 @@ def read_files(DATAPATH, dataset, verbose=True):
 	for file in os.listdir(DATAPATH):
 		if dataset + '.h5' == file:
 			if verbose:
-				print("Reading data from {}".format(file))
+				print("Reading data from: {}".format(file))
 				events = pd.read_hdf(os.path.join(DATAPATH, file)).values
 
 	return events
 
-def Loader(dataset, batch_size, test, scaler, weighted, device):
+def Loader(datapath: str, dataset: str, batch_size: int, test: bool, scaler: float, weighted: bool, device):
 
-	datapath = './data/'
+
 	data = read_files(datapath, dataset)	
 
 	if test == True:
@@ -29,7 +29,7 @@ def Loader(dataset, batch_size, test, scaler, weighted, device):
 
 	events=data
 	
-	"""Select a single global scale or one for each direction""" 
+	# Select a single global scale or one for each direction
 	#scales = np.std(events)
 	if weighted:
 		scales = np.std(events[:,:-1],0)
@@ -40,9 +40,9 @@ def Loader(dataset, batch_size, test, scaler, weighted, device):
 	events_validate = events[validate_split:]
 
 	shape = events_train.shape[1]
-	print(events_train.shape)
+	print(f"data shape: {events_train.shape}")
 
-	"""Prepare train and validate data loaders"""
+	# Prepare train and validate data loaders
 	train_loader = torch.utils.data.DataLoader(
 			torch.from_numpy(events_train).to(device),
 			batch_size = batch_size,

@@ -2,7 +2,8 @@
 # Choose dataset: #
 ######################
 
-dataset = '2d_4_gaussian_mixture_weighted'
+datapath = '../../datasets/toy/'
+dataset = 'circles'
 
 #########
 # Data: #
@@ -38,6 +39,7 @@ wasserstein = True
 n_blocks = 4
 n_units  = 96
 n_layers = 5
+aug_dim  = 0
 
 latent_dim_gen = 2
 

@@ -1,4 +1,5 @@
 """ Train augmented flow """
+
 import sys, os
 import torch
 
@@ -19,7 +20,7 @@ from elsa.utils.plotting.plots import *
 ## Setup ##
 ###########
 
-import config_LSR as c
+import config as c
 import opts
 opts.parse(sys.argv)
 
@@ -37,14 +38,13 @@ config_str += "==="*30 + "\n"
 print(config_str)
 
 device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
-
-sys.exit()
+print(f"device: {device}")
 
 ###############
 ## Load data ##
 ###############
 
-train_loader, validate_loader, dataset_size, data_shape, scales = Loader(c.dataset, c.batch_size, c.test, c.scaler, c.weighted)
+train_loader, validate_loader, dataset_size, data_shape, scales = Loader(c.datapath, c.dataset, c.batch_size, c.test, c.scaler, c.weighted, device)
 scales_tensor = torch.Tensor(scales).double().to(device)
 
 if c.weighted:
@@ -61,7 +61,7 @@ flow.define_model_architecture() # This seems to be a bit annoying to call again
 flow.set_optimizer()
 
 print("\n" + "==="*30 + "\n")
-print(flow.model)
+#print(flow.model)
 print('Total parameters: %d' % sum([np.prod(p.size()) for p in flow.params_trainable]))
 print("\n" + "==="*30 + "\n")
 

@@ -233,7 +233,7 @@ z, rate = hamilton.sample(data_shape, 10000)
 
 print('rate = ', rate)
 
-inv = flow.model.sample_custom(z)
+inv = flow.model.sample_refined(z)
 inv = inv.cpu().detach().numpy() * scales
 
 size = 1000000
