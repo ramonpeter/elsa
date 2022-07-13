@@ -23,11 +23,11 @@ class AverageMeter():
 		self.count += n
 		self.avg = self.sum / self.count
 
-def print_log(epoch, epoches, iteration, iters, learning_rate, display, loss_D, loss_G):
+def print_log(epoch, epochs, iteration, iters, learning_rate, display, loss_D, loss_G):
 
-	print('epoch: [{}/{}] iteration: [{}/{}]\t' 'Learning rate: {}'.format(epoch, epoches, iteration, iters, learning_rate))
-	print('Loss_D = {loss_D.val:.8f} (ave = {loss_D.avg:.8f})\n'.format(display, loss_D=loss_D))
-	print('Loss_G = {loss_G.val:.8f} (ave = {loss_G.avg:.8f})\n'.format(display, loss_G=loss_G))
+	print(f'epoch: [{epoch}/{epochs}], iteration: [{iteration}/{iters}],  Learning rate: {learning_rate}')
+	print('Loss_D = {loss_D.val:.8f} (ave = {loss_D.avg:.8f})'.format(display, loss_D=loss_D))
+	print('Loss_G = {loss_G.val:.8f} (ave = {loss_G.avg:.8f})'.format(display, loss_G=loss_G))
 
 def save_checkpoint(state, filename='checkpoint'):
 	torch.save(state, filename + '.pth.tar')
@@ -113,9 +113,8 @@ def load_checkpoint(path, model, optimizer, topo=False):
 		model.optim.load_state_dict(checkpoint['optimizer'])
 		return model, optimizer, checkpoint['epoch']
 
-def get_real_data(dataset, test, sample_size):
+def get_real_data(datapath, dataset, test, sample_size):
 
-	datapath = './data/'
 	data = pd.read_hdf(datapath + dataset + '.h5').values
 
 	if test == True:

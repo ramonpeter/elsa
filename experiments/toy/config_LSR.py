@@ -2,7 +2,8 @@
 # Choose dataset #
 ##################
 
-dataset = 'circles' # eight_gaussians, pinwheel
+datapath = '../../datasets/toy/'
+dataset = 'pinwheel' # eight_gaussians, pinwheel, circles
 
 ########
 # Data #
@@ -24,9 +25,14 @@ weight_decay = 1e-5
 
 betas = (0.9, 0.999)
 
+do_rev = False
+do_fwd = True
+
 n_epochs = 101
 n_its_per_epoch_gen = 1
 n_its_per_epoch_ref = 1
+
+n_disc_updates = 5
 
 mmd = False
 
@@ -37,9 +43,9 @@ mmd = False
 n_blocks = 8
 n_units  = 32
 n_layers = 2
-aug_dim  = 0
+aug_dim  = 2 # was 0
 
-n_units_disc  = 30
+n_units_disc  = 32
 n_layers_disc = 3
 
 latent_dim_gen = 2 #for LSRGAN
@@ -51,8 +57,8 @@ latent_dim_gen = 2 #for LSRGAN
 loss_names = ['L', 'L_rev']
 progress_bar = True
 
-show_interval = 50
-save_interval = 50
+show_interval = 10
+save_interval = 10
 
 ##################
 # Loading/saving #
@@ -64,5 +70,5 @@ train = True
 save_model = True
 load_model = False
 
-save_dir = './experiments'
+save_dir = './results'
 checkpoint_on_error = False

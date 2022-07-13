@@ -1,63 +1,68 @@
-######################
-# Choose dataset: #
-######################
+##################
+# Choose dataset #
+##################
 
 datapath = '../../datasets/toy/'
-dataset = 'circles'
+dataset = 'circles' # eight_gaussians, pinwheel
 
-#########
-# Data: #
-#########
+########
+# Data #
+########
 
 weighted = False
 scaler   = 1.
 
-##############
-# Training:  #
-##############
+############
+# Training #
+############
 
 lr = 1e-3
-batch_size = 8000
-gamma = 0.999
-weight_decay = 0.
-betas = (0.5, 0.9)
+lr_ref = 1e-3
+
+batch_size = 1024
+gamma = 0.995
+weight_decay = 1e-5
+
+betas = (0.9, 0.999)
 
 do_rev = False
 do_fwd = True
 
-n_epochs = 1000
-n_its_per_epoch = 1
+n_epochs = 100
+n_its_per_epoch_gen = 1
+n_its_per_epoch_ref = 1
 
 n_disc_updates = 5
 
-#################
-# Architecture: #
-#################
+mmd = False
 
-wasserstein = True
+################
+# Architecture #
+################
 
-n_blocks = 4
-n_units  = 96
-n_layers = 5
+n_blocks = 8
+n_units  = 32
+n_layers = 2
 aug_dim  = 0
 
-latent_dim_gen = 2
+n_units_disc  = 30
+n_layers_disc = 3
 
-clamp = 0.01
+latent_dim_gen = 2 #for LSRGAN
 
-####################
-# Logging/preview: #
-####################
+###################
+# Logging/preview #
+###################
 
 loss_names = ['L', 'L_rev']
-progress_bar = True                         # Show a progress bar of each epoch
+progress_bar = True
 
 show_interval = 5
 save_interval = 5
 
-###################
-# Loading/saving: #
-###################
+##################
+# Loading/saving #
+##################
 
 test = False
 train = True

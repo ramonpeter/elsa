@@ -16,13 +16,15 @@ from elsa.utils.train_utils import AverageMeter, print_log, get_real_data, save_
 from elsa.utils.plotting.distributions import *
 from elsa.utils.plotting.plots import *
 
+# Load config and opts
+import config_LSR as c
+import opts
+
 ###########
 ## Setup ##
 ###########
 
-import config as c
-import opts
-opts.parse(sys.argv)
+opts.parse(sys.argv, c)
 
 config_str = ""
 config_str += "==="*30 + "\n"
@@ -56,9 +58,9 @@ print("\n" + "==="*30 + "\n")
 ## Define Model ##
 ##################
 
-flow = AugFlow(in_dim=data_shape, aug_dim=c.aug_dim, n_blocks=c.n_blocks, internal_size=c.n_units, n_layers=c.n_layers, init_zeros=False, dropout=False)
+flow = AugFlow(in_dim=data_shape, aug_dim=c.aug_dim, n_blocks=c.n_blocks, n_units=c.n_units, n_layers=c.n_layers)
 flow.define_model_architecture() # This seems to be a bit annoying to call again?!
-flow.set_optimizer()
+flow.set_optimizer(c)
 
 print("\n" + "==="*30 + "\n")
 #print(flow.model)
@@ -101,7 +103,7 @@ try:
 				i += 1
 
 			if epoch == 0 or epoch % c.show_interval == 0:
-				print_log(epoch, c.n_epochs - 1, i + 1, len(train_loader), flow.scheduler.optimizer.param_groups[0]['lr'],
+				print_log(epoch+1, c.n_epochs, i, len(train_loader), flow.scheduler.optimizer.param_groups[0]['lr'],
 							   c.show_interval, F_loss_meter, F_loss_meter)
 
 			F_loss_meter.reset()
@@ -122,7 +124,7 @@ try:
 				size = 300000
 
 			with torch.no_grad():
-				real = get_real_data(c.dataset, c.test, size)
+				real = get_real_data(c.datapath, c.dataset, c.test, size)
 
 				if c.weighted:
 					inv, z = flow.model.sample(size)
@@ -133,7 +135,7 @@ try:
 
 			distributions = Distribution(real, inv, 'epoch_%03d' % (epoch) + '_target', log_dir + '/' + c.dataset + '/n_epochs_' + str(c.n_epochs), c.dataset, latent=False)
 			distributions.plot()
-
+		
 		flow.scheduler.step()
 except:
 	if c.checkpoint_on_error:
@@ -153,7 +155,7 @@ fake = fake.cpu().detach().numpy()
 fake *= scales
 
 # Get real samples
-real = get_real_data(c.dataset, c.test, size)
+real = get_real_data(c.datapath, c.dataset, c.test, size)
 
 # Save to hdf5
 s1 = pd.HDFStore('augflow.h5')

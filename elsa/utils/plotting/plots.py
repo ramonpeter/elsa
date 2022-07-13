@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 
+np.seterr(invalid='ignore', divide='ignore')
+
 import matplotlib
 #matplotlib.use('agg')
 import matplotlib.pyplot as plt
