@@ -23,25 +23,24 @@ class Distribution(Observable):
 	specified dataset.
 	"""
 	def __init__(self,
-				 real_data,
-				 gen_data,
-				 name,
-				 log_dir,
-				 dataset,
-				 mean=[],
-				 std=[],
-				 latent=False,
-				 weights=[],
-				 extra_data=[]):
+				 real_data: np.array,
+				 gen_data: np.array,
+				 name: str,
+				 label_name: str,
+				 log_dir: str,
+				 dataset: str,
+				 latent: bool=False,
+				 weights: np.array=[],
+				 extra_data: np.array=[]
+     	):
 		super(Distribution, self).__init__()
 		self.real_data = real_data
 		self.gen_data = gen_data
 		self.name = name
+		self.label_name = label_name
 		self.log_dir = log_dir
 		self.dataset = dataset
 		self.latent = latent
-		self.mean = mean
-		self.std = std
 		self.weights = weights
 		self.extra_data = extra_data
 
@@ -51,8 +50,6 @@ class Distribution(Observable):
 		else:
 			if self.dataset == 'Drell_Yan':
 				self.drell_yan_distributions()
-			if self.dataset == 'w_2jets':
-				self.w_2jets_distributions()
 			elif self.dataset == 'wp_2j':
 				self.w_2jets_distributions()
 			elif self.dataset == 'wp_3j':
@@ -103,7 +100,7 @@ class Distribution(Observable):
 			with PdfPages(self.log_dir + '/' + self.dataset + '_' + self.name + '_ratio.pdf') as pp:
 				for observable in self.args.keys():
 					fig, axs = plt.subplots(2, 1, sharex=True, gridspec_kw={'height_ratios' : [4, 1], 'hspace' : 0.00})
-					plot_distribution_ratio(fig, axs, self.real_data, self.gen_data,  self.args[observable], self.weights, self.extra_data)
+					plot_distribution_ratio(fig, axs, self.real_data, self.gen_data, self.label_name, self.args[observable], self.weights, self.extra_data)
 					fig.savefig(pp, bbox_inches='tight', format='pdf', pad_inches=0.05)
 					plt.close()
 
@@ -184,13 +181,13 @@ class Distribution(Observable):
 		 # Particle_id, observable, bins, range, x_label, log_scale
 
 		args = {			 
-			'x' : ([0], self.roll_0, 200, (-3.5,3.5) ,r'$x$', r'x',False),
-			'y' : ([0], self.roll_1, 200, (-3.5,3.5) ,r'$y$', r'y',False),
+			'x' : ([0], self.roll_0, 100, (-3.5,3.5) ,r'$x$', r'$x$',False),
+			'y' : ([1], self.roll_1, 100, (-3.5,3.5) ,r'$y$', r'$y$',False),
 		}	 
 
 		args2 = {			 
-			'x' : ([0], self.roll_0, 200, (-3.5,3.5) ,r'$x$', r'x',False),
-			'y' : ([0], self.roll_1, 200, (-3.5,3.5) ,r'$y$', r'y',False),
+			'x' : ([0], self.roll_0, 200, (-3.5,3.5) ,r'$x$', r'$x$',False),
+			'y' : ([1], self.roll_1, 200, (-3.5,3.5) ,r'$y$', r'$y$',False),
 		}
 	 
 		self.args = args
@@ -216,13 +213,13 @@ class Distribution(Observable):
 		 # Particle_id, observable, bins, range, x_label, log_scale
 
 		args = {			 
-			'x' : ([0], self.roll_0, 200, (-3.5,3.5) ,r'$x$', r'x',False),
-			'y' : ([0], self.roll_1, 200, (-3.5,3.5) ,r'$y$', r'y',False),
+			'x' : ([0], self.roll_0, 100, (-3.5,3.5) ,r'$x$', r'$x$',False),
+			'y' : ([1], self.roll_1, 100, (-3.5,3.5) ,r'$y$', r'$y$',False),
 		}	 
 
 		args2 = {			 
-			'x' : ([0], self.roll_0, 200, (-3.5,3.5) ,r'$x$', r'x',False),
-			'y' : ([0], self.roll_1, 200, (-3.5,3.5) ,r'$y$', r'y',False),
+			'x' : ([0], self.roll_0, 200, (-3.5,3.5) ,r'$x$', r'$x$',False),
+			'y' : ([1], self.roll_1, 200, (-3.5,3.5) ,r'$y$', r'$y$',False),
 		}
 	 
 		self.args = args
@@ -232,13 +229,13 @@ class Distribution(Observable):
 		 # Particle_id, observable, bins, range, x_label, log_scale
 
 		args = {			 
-			'x' : ([0], self.roll_0, 100, (-10.2,10.2) ,r'$x$', r'x',False),
-			'y' : ([0], self.roll_1, 100, (-10.2,10.2) ,r'$y$', r'y',False),
+			'x' : ([0], self.roll_0, 100, (-10.2,10.2) ,r'$x$', r'$x$',False),
+			'y' : ([0], self.roll_1, 100, (-10.2,10.2) ,r'$y$', r'$y$',False),
 		}	 
 
 		args2 = {			 
-			'x' : ([0], self.roll_0, 200, (-8.2,8.2) ,r'$x$', r'x',False),
-			'y' : ([0], self.roll_1, 200, (-8.2,8.2) ,r'$y$', r'y',False),
+			'x' : ([0], self.roll_0, 200, (-8.2,8.2) ,r'$x$', r'$x$',False),
+			'y' : ([0], self.roll_1, 200, (-8.2,8.2) ,r'$y$', r'$y$',False),
 		}
 	 
 		self.args = args
@@ -264,13 +261,13 @@ class Distribution(Observable):
 		 # Particle_id, observable, bins, range, x_label, log_scale
 
 		args = {			 
-			'x' : ([0], self.roll_0, 100, (-12.2,12.2) ,r'$x$', r'x',False),
-			'y' : ([0], self.roll_1, 100, (-8.2,8.2) ,r'$y$', r'y',False),
+			'x' : ([0], self.roll_0, 100, (-12.2,12.2) ,r'$x$', r'$x$',False),
+			'y' : ([0], self.roll_1, 100, (-8.2,8.2) ,r'$y$', r'$y$',False),
 		}	 
 
 		args2 = {			 
-			'x' : ([0], self.roll_0, 200, (-12.2,12.2) ,r'$x$', r'x',False),
-			'y' : ([0], self.roll_1, 200, (-8.2,8.2) ,r'$y$', r'y',False),
+			'x' : ([0], self.roll_0, 200, (-12.2,12.2) ,r'$x$', r'$x$',False),
+			'y' : ([0], self.roll_1, 200, (-8.2,8.2) ,r'$y$', r'$y$',False),
 		}
 	 
 		self.args = args
@@ -347,23 +344,26 @@ class Distribution(Observable):
 
 		args = {			 
 			'ptW' : ([0], self.transverse_momentum, 40, (0,300) ,r'$p_{T, W}$ [GeV]', r'p_{T, W}',False),
-		 	'pxW' : ([0], self.x_momentum, 50, (-160,160), r'$p_{\mathrm{x}, W}$ [GeV]', r'p_{x, W}',False),
-			'pyW' : ([0], self.y_momentum, 50, (-160,160), r'$p_{\mathrm{y}, W}$ [GeV]', r'p_{y, W}',False),
-			'pzW' : ([0], self.z_momentum, 50, (-600,600), r'$p_{\mathrm{z}, W}$ [GeV]', r'p_{z, W}',False),
+		 	'pxW' : ([0], self.x_momentum, 50, (-160,160), r'$p_{x, W}$ [GeV]', r'p_{x, W}',False),
+			'pyW' : ([0], self.y_momentum, 50, (-160,160), r'$p_{y, W}$ [GeV]', r'p_{y, W}',False),
+			'pzW' : ([0], self.z_momentum, 50, (-600,600), r'$p_{z, W}$ [GeV]', r'p_{z, W}',False),
 			'EW'  : ([0], self.energy, 40, (0,1000), r'$E_{W}$ [GeV]', r'E_{W}',False),
 			#---------------------#		
-			'ptj1' : ([1], self.transverse_momentum, 40, (0,180) ,r'$p_{T, j1}$ [GeV]', r'p_{T, j1}',False),
-		 	'pxj1' : ([1], self.x_momentum, 40, (-120,120), r'$p_{\mathrm{x}, j1}$ [GeV]', r'p_{x, j1}',False),
-			'pyj1' : ([1], self.y_momentum, 40, (-120,120), r'$p_{\mathrm{y}, j1}$ [GeV]', r'p_{y, j1}',False),
-			'pzj1' : ([1], self.z_momentum, 50, (-400,400), r'$p_{\mathrm{z}, j1}$ [GeV]', r'p_{z, j1}',False),
-			'Ej1'  : ([1], self.energy, 40, (0,600), r'$E_{j1}$ [GeV]', r'E_{j1}',False),
+			'ptj1' : ([1], self.transverse_momentum, 40, (0,180) ,r'$p_{\mathrm{T}, \mathrm{j}_1}$ [GeV]', r'p_{\mathrm{T}, \mathrm{j}_1}',False),
+		 	'pxj1' : ([1], self.x_momentum, 40, (-120,120), r'$p_{x, \mathrm{j}_1}$ [GeV]', r'p_{x, \mathrm{j}_1}',False),
+			'pyj1' : ([1], self.y_momentum, 40, (-120,120), r'$p_{y, \mathrm{j}_1}$ [GeV]', r'p_{y, \mathrm{j}_1}',False),
+			'pzj1' : ([1], self.z_momentum, 50, (-400,400), r'$p_{z, \mathrm{j}_1}$ [GeV]', r'p_{z, \mathrm{j}_1}',False),
+			'Ej1'  : ([1], self.energy, 40, (0,600), r'$E_{\mathrm{j}_1}$ [GeV]', r'E_{\mathrm{j}_1}',False),
 			#---------------------#			
-			'ptj2' : ([2], self.transverse_momentum, 40, (0,180) ,r'$p_{T, j2}$ [GeV]', r'p_{T, j2}',False),
-		 	'pxj2' : ([2], self.x_momentum, 40, (-120,120), r'$p_{\mathrm{x}, j2}$ [GeV]', r'p_{x, j2}',False),
-			'pyj2' : ([2], self.y_momentum, 40, (-120,120), r'$p_{\mathrm{y}, j2}$ [GeV]', r'p_{y, j2}',False),
-			'pzj2' : ([2], self.z_momentum, 50, (-400,400), r'$p_{\mathrm{z}, j2}$ [GeV]', r'p_{z, j2}',False),
-			'Ej2'  : ([2], self.energy, 40, (0,600), r'$E_{j2}$ [GeV]', r'E_{j2}',False),
-			#---------------------#			
+			'ptj2' : ([2], self.transverse_momentum, 40, (0,180) ,r'$p_{\mathrm{T}, \mathrm{j}_2}$ [GeV]', r'p_{\mathrm{T}, \mathrm{j}_2}',False),
+		 	'pxj2' : ([2], self.x_momentum, 40, (-120,120), r'$p_{x, \mathrm{j}_2}$ [GeV]', r'p_{x, \mathrm{j}_2}',False),
+			'pyj2' : ([2], self.y_momentum, 40, (-120,120), r'$p_{y, \mathrm{j}_2}$ [GeV]', r'p_{y, \mathrm{j}_2}',False),
+			'pzj2' : ([2], self.z_momentum, 50, (-400,400), r'$p_{z, \mathrm{j}_2}$ [GeV]', r'p_{z, \mathrm{j}_2}',False),
+			'Ej2'  : ([2], self.energy, 40, (0,600), r'$E_{\mathrm{j}_2}$ [GeV]', r'E_{\mathrm{j}_2}',False),
+			#---------------------#	
+			'Rjj' : ([2], self.transverse_momentum, 40, (0,180) ,r'$\DeltaR_{\mathrm{j}\mathrm{j}}$ [GeV]', r'\DeltaR_{\mathrm{j}\mathrm{j}}',False),
+		 	'mjj' : ([1,2], self.invariant_mass, 40, (-120,120), r'$M_{\mathrm{j}\mathrm{j}}$ [GeV]', r'p_{x, j2}',False),
+			#---------------------#	
 		}	 
 
 		args2 = {			 
@@ -379,7 +379,7 @@ class Distribution(Observable):
 			#'pzj1' : ([1], self.z_momentum, 50, (-400,400), r'$p_{\mathrm{z}, j1}$ [GeV]', r'p_{z, j1}',False),
 			#'Ej1'  : ([1], self.energy, 40, (0,600), r'$E_{j1}$ [GeV]', r'E_{j1}',False),
 			#---------------------#			
-			#'ptj2' : ([2], self.transverse_momentum, 40, (0,180) ,r'$p_{T, j2}$ [GeV]', r'p_{T, j2}',False),
+			'ptj2' : ([2], self.transverse_momentum, 40, (0,180) ,r'$p_{T, j2}$ [GeV]', r'p_{T, j2}',False),
 		 	#'pxj2' : ([2], self.x_momentum, 40, (-120,120), r'$p_{\mathrm{x}, j2}$ [GeV]', r'p_{x, j2}',False),
 			#'pyj2' : ([2], self.y_momentum, 40, (-120,120), r'$p_{\mathrm{y}, j2}$ [GeV]', r'p_{y, j2}',False),
 			#'pzj2' : ([2], self.z_momentum, 50, (-400,400), r'$p_{\mathrm{z}, j2}$ [GeV]', r'p_{z, j2}',False),
@@ -514,8 +514,8 @@ class Distribution(Observable):
 		 # Particle_id, observable, bins, range, x_label, log_scale
 
 		args = {			 
-			'z0' : ([0], self.roll_0, 60, (-4,4) ,r'$z_0$', r'z_0',False),
-			'z1' : ([0], self.roll_1, 60, (-4,4) ,r'$z_1$', r'z_1',False),
+			'z0' : ([0], self.roll_0, 60, (-4,4) ,r'$z_0$', r'$z_0$',False),
+			'z1' : ([0], self.roll_1, 60, (-4,4) ,r'$z_1$', r'$z_1$',False),
 			#'z2' : ([0], self.roll_2, 60, (-4,4) ,r'$z_2$', r'z_2',False),
 			#'z3' : ([0], self.roll_3, 60, (-4,4) ,r'$z_3$', r'z_3',False),
 			#'z4' : ([0], self.roll_4, 60, (-4,4) ,r'$z_4$', r'z_4',False),
@@ -529,8 +529,8 @@ class Distribution(Observable):
 		}	 
 
 		args2 = {			 
-			'z0' : ([0], self.roll_0, 200, (-3,3) ,r'$z_0$', r'z_0',False),
-			'z1' : ([0], self.roll_1, 200, (-3,3) ,r'$z_1$', r'z_1',False),
+			'z0' : ([0], self.roll_0, 200, (-3,3) ,r'$z_0$', r'$z_0$',False),
+			'z1' : ([0], self.roll_1, 200, (-3,3) ,r'$z_1$', r'$z_1$',False),
 			#'z2' : ([0], self.roll_2, 200, (-4,4) ,r'$z_2$', r'z_2',False),
 			#'z3' : ([0], self.roll_3, 200, (-4,4) ,r'$z_3$', r'z_3',False),
 			#'z4' : ([0], self.roll_4, 200, (-4,4) ,r'$z_4$', r'z_4',False),

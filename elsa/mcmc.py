@@ -55,7 +55,7 @@ class HamiltonMCMC:
 	def U(self, q):
 		sq_norm = torch.sum(torch.square(q), dim=-1, keepdim=True)
 
-		return sq_norm / 2 - self.classifier(self.generator(q)) # define forward pass as custom_sample
+		return sq_norm / 2 - self.classifier(self.generator(q)) # define forward pass as sample_refined
 
 	def grad_U(self, q):
 

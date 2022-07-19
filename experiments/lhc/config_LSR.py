@@ -1,19 +1,20 @@
-######################
-# Choose dataset: #
-######################
+##################
+# Choose dataset #
+##################
 
-dataset = 'circles'
+datapath = '../../datasets/toy/'
+dataset = 'eight_gaussians' # eight_gaussians, pinwheel, circles
 
-#########
-# Data: #
-#########
+########
+# Data #
+########
 
 weighted = False
 scaler   = 1.
 
-##############
-# Training:  #
-##############
+############
+# Training #
+############
 
 lr = 1e-3
 lr_ref = 1e-3
@@ -24,39 +25,44 @@ weight_decay = 1e-5
 
 betas = (0.9, 0.999)
 
-n_epochs = 101
+do_rev = False
+do_fwd = True
+
+n_epochs = 100
 n_its_per_epoch_gen = 1
 n_its_per_epoch_ref = 1
 
+n_disc_updates = 5
+
 mmd = False
 
-#################
-# Architecture: #
-#################
+################
+# Architecture #
+################
 
 n_blocks = 8
-n_units  = 32
+n_units  = 30
 n_layers = 2
-aug_dim  = 0
+aug_dim  = 0 
 
 n_units_disc  = 30
 n_layers_disc = 3
 
 latent_dim_gen = 2 #for LSRGAN
 
-####################
-# Logging/preview: #
-####################
+###################
+# Logging/preview #
+###################
 
 loss_names = ['L', 'L_rev']
 progress_bar = True
 
-show_interval = 50
+show_interval = 5
 save_interval = 50
 
-###################
-# Loading/saving: #
-###################
+##################
+# Loading/saving #
+##################
 
 test = False
 train = True
@@ -64,5 +70,5 @@ train = True
 save_model = True
 load_model = False
 
-save_dir = './experiments'
+save_dir = './results'
 checkpoint_on_error = False

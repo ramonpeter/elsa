@@ -21,7 +21,7 @@ gcolor = '#3b528b'
 dcolor = '#e41a1c'
 teal = '#10AB75'
 
-FONTSIZE = 20 #18, (20 2d) 12 (if latex is false in distributions)
+FONTSIZE = 18 #18, (20 2d) 12 (if latex is false in distributions)
 
 ############################################
 # Functions
@@ -40,7 +40,7 @@ class AnyObjectHandler(HandlerBase):
 						   linestyle = orig_handle[2], color = orig_handle[0])
 		return [l1, l2]
 
-def plot_distribution_ratio(fig, axs, y_train, y_predict, args, weights, extra):
+def plot_distribution_ratio(fig, axs, y_train, y_predict, label_name, args, weights, extra):
 	# Particle_id, observable, bins, range, x_label, log_scale
 
 	y_train = args[1](y_train, args[0])
@@ -63,13 +63,18 @@ def plot_distribution_ratio(fig, axs, y_train, y_predict, args, weights, extra):
 	#y_w, x_w = np.histogram(y_predict, args[2], density=True, range=args[3], weights=weights)
 	#y_e, x_e = np.histogram(y_extra, args[2], density=True, range=args[3])
 
+	if label_name == "AugFlow":
+		label_nm = r"\textsc{AugFlow}"
+	elif label_name == "LaSeR":
+		label_nm = r"\textsc{LaSeR}"
+	else:
+		label_nm = label_name
+		
 	axs[0].step(x_t[:args[2]], y_t, gcolor, label='Truth', linewidth=1.0, where='mid')
-	axs[0].step(x_t[:args[2]], y_p, dcolor, label='Refined', linewidth=1.0, where='mid')
+	axs[0].step(x_t[:args[2]], y_p, dcolor, label=label_nm, linewidth=1.0, where='mid')
 	
 	if extra != []:
 		axs[0].step(x_e[:args[2]], y_e, teal, label='Base', linewidth=1.0, where='mid')
-
-	#axs[0].step(x_t[:args[2]], y_w, teal, label='DCTRGAN', linewidth=1.0, where='mid')
 
 	for j in range(2):
 		for label in ( [axs[j].yaxis.get_offset_text()] +

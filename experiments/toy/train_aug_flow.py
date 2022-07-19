@@ -1,23 +1,23 @@
 """ Train augmented flow """
 
+# Basics
 import sys, os
 import torch
+import numpy as np
+import pandas as pd
 
 # Model
-from augflow_model import AugFlow
-
-# Data
-from elsa.load_data import Loader
+from flow_model import INN
 
 # Train utils
+from elsa.load_data import Loader
 from elsa.utils.train_utils import AverageMeter, print_log, get_real_data, save_checkpoint
 
 # Plotting
-from elsa.utils.plotting.distributions import *
-from elsa.utils.plotting.plots import *
+from elsa.utils.plotting.distributions import Distribution
 
 # Load config and opts
-import config_LSR as c
+import config_aug as c
 import opts
 
 ###########
@@ -58,15 +58,14 @@ print("\n" + "==="*30 + "\n")
 ## Define Model ##
 ##################
 
-flow = AugFlow(in_dim=data_shape, aug_dim=c.aug_dim, n_blocks=c.n_blocks, n_units=c.n_units, n_layers=c.n_layers)
+flow = INN(in_dim=data_shape, aug_dim=c.aug_dim, n_blocks=c.n_blocks, n_units=c.n_units, n_layers=c.n_layers, device=device, config=c)
 flow.define_model_architecture() # This seems to be a bit annoying to call again?!
-flow.set_optimizer(c)
+flow.set_optimizer()
 
 print("\n" + "==="*30 + "\n")
 #print(flow.model)
 print('Total parameters: %d' % sum([np.prod(p.size()) for p in flow.params_trainable]))
 print("\n" + "==="*30 + "\n")
-
 
 ##############
 ## Training ##
@@ -75,8 +74,8 @@ print("\n" + "==="*30 + "\n")
 try:
 	log_dir = c.save_dir
 
-	if not os.path.exists(log_dir + '/' + c.dataset + '/' + '/n_epochs_' + str(c.n_epochs)):
-		os.makedirs(log_dir + '/' +  c.dataset + '/' + '/n_epochs_' + str(c.n_epochs))
+	if not os.path.exists(log_dir + '/' + c.dataset + '/' + 'augflow/n_epochs_' + str(c.n_epochs)):
+		os.makedirs(log_dir + '/' +  c.dataset + '/' + 'augflow/n_epochs_' + str(c.n_epochs))
 
 	F_loss_meter = AverageMeter()
 
@@ -102,21 +101,21 @@ try:
 
 				i += 1
 
-			if epoch == 0 or epoch % c.show_interval == 0:
+			if epoch == 0 or (epoch + 1) % c.show_interval == 0:
 				print_log(epoch+1, c.n_epochs, i, len(train_loader), flow.scheduler.optimizer.param_groups[0]['lr'],
-							   c.show_interval, F_loss_meter, F_loss_meter)
+							   c.show_interval, F_loss_meter)
 
 			F_loss_meter.reset()
 
-		if epoch % c.save_interval == 0 or epoch + 1 == c.n_epochs:
+		if (epoch + 1) % c.save_interval == 0 or epoch + 1 == c.n_epochs:
 			if c.save_model == True:
 
 				checkpoint_F = {
-					'epoch': epoch,
+					'epoch': epoch + 1,
 					'model': flow.model.state_dict(),
 					'optimizer': flow.optim.state_dict(),
 					}
-				save_checkpoint(checkpoint_F, log_dir + '/' + c.dataset + '/n_epochs_' + str(c.n_epochs), 'checkpoint_F_epoch_%03d' % (epoch))
+				save_checkpoint(checkpoint_F, log_dir + '/' + c.dataset + '/augflow/n_epochs_' + str(c.n_epochs), 'checkpoint_F_epoch_%03d' % (epoch+1))
 
 			if c.test == True:
 				size = 10000
@@ -126,14 +125,10 @@ try:
 			with torch.no_grad():
 				real = get_real_data(c.datapath, c.dataset, c.test, size)
 
-				if c.weighted:
-					inv, z = flow.model.sample(size)
-					inv = inv.cpu().detach().numpy() * scales
-				else:
-					inv, z = flow.model.sample(size)
-					inv = inv.cpu().detach().numpy() * scales
+				fake, _ = flow.model.sample(size)
+				fake = fake.cpu().detach().numpy() * scales
 
-			distributions = Distribution(real, inv, 'epoch_%03d' % (epoch) + '_target', log_dir + '/' + c.dataset + '/n_epochs_' + str(c.n_epochs), c.dataset, latent=False)
+			distributions = Distribution(real, fake, 'epoch_%03d' % (epoch+1) + '_target', 'AugFlow', log_dir + '/' + c.dataset + '/augflow/n_epochs_' + str(c.n_epochs), c.dataset)
 			distributions.plot()
 		
 		flow.scheduler.step()
@@ -158,10 +153,10 @@ fake *= scales
 real = get_real_data(c.datapath, c.dataset, c.test, size)
 
 # Save to hdf5
-s1 = pd.HDFStore('augflow.h5')
+s1 = pd.HDFStore(log_dir + '/' + c.dataset + '/augflow/n_epochs_' + str(c.n_epochs) + '/augflow.h5')
 s1.append('data', pd.DataFrame(fake))
 s1.close()
 
 # Make plots
-distributions = Distribution(real, inv, 'HMC', log_dir + '/' + c.dataset + '/n_epochs_' + str(c.n_epochs), c.dataset, latent=False, weights=[], extra_data=fake)
+distributions = Distribution(real, fake, 'AugFlow', 'AugFlow', log_dir + '/' + c.dataset + '/augflow/n_epochs_' + str(c.n_epochs), c.dataset)
 distributions.plot()

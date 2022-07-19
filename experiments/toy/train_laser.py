@@ -1,17 +1,32 @@
-from elsa.utils.train_utils import *
-from elsa.utils.plotting.distributions import *
-from elsa.utils.plotting.plots import *
-from elsa.load_data import *
+""" Train augmented flow """
 
-from survae_model import INN
+# Basics
+import sys, os
+import torch
+import numpy as np
+import pandas as pd
+
+# Models
+from flow_model import INN
 from GAN_models import netD
 from elsa.mcmc import HamiltonMCMC
 
-import sys, os
+# Train utils
+from elsa.utils.train_utils import AverageMeter, print_log, get_real_data, save_checkpoint
+from elsa.load_data import Loader
 
+# Plotting
+from elsa.utils.plotting.distributions import Distribution
+
+# Load config and opts
 import config_LSR as c
 import opts
-opts.parse(sys.argv)
+
+###########
+## Setup ##
+###########
+
+opts.parse(sys.argv, c)
 config_str = ""
 config_str += "==="*30 + "\n"
 config_str += "Config options:\n\n"
@@ -26,8 +41,13 @@ config_str += "==="*30 + "\n"
 print(config_str)
 
 device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
+print(f"device: {device}")
 
-train_loader, validate_loader, dataset_size, data_shape, scales = Loader(c.dataset, c.batch_size, c.test, c.scaler, c.weighted)
+###############
+## Load data ##
+###############
+
+train_loader, validate_loader, dataset_size, data_shape, scales = Loader(c.datapath, c.dataset, c.batch_size, c.test, c.scaler, c.weighted, device)
 scales_tensor = torch.Tensor(scales).double().to(device)
 
 if c.weighted:
@@ -35,24 +55,32 @@ if c.weighted:
 
 print("\n" + "==="*30 + "\n")
 
-flow = INN(in_dim=data_shape, aug_dim=c.aug_dim, n_blocks=c.n_blocks, internal_size=c.n_units, n_layers=c.n_layers, init_zeros=False, dropout=False)
-flow.define_model_architecture()
+#######################
+## Define Flow Model ##
+#######################
+
+flow = INN(in_dim=data_shape, aug_dim=c.aug_dim, n_blocks=c.n_blocks, n_units=c.n_units, n_layers=c.n_layers, device=device, config=c)
+flow.define_model_architecture() # This seems to be a bit annoying to call again?!
 flow.set_optimizer()
 
 print("\n" + "==="*30 + "\n")
-print(flow.model)
+#print(flow.model)
 print('Total parameters: %d' % sum([np.prod(p.size()) for p in flow.params_trainable]))
 print("\n" + "==="*30 + "\n")
 
-# Train primary generator
+################################
+## Training primary generator ##
+################################
+
 try:
 	log_dir = c.save_dir
 
-	if not os.path.exists(log_dir + '/' + c.dataset + '/' + '/n_epochs_' + str(c.n_epochs)):
-		os.makedirs(log_dir + '/' +  c.dataset + '/' + '/n_epochs_' + str(c.n_epochs))
+	if not os.path.exists(log_dir + '/' + c.dataset + '/' + 'hmc/n_epochs_' + str(c.n_epochs)):
+		os.makedirs(log_dir + '/' +  c.dataset + '/' + 'hmc/n_epochs_' + str(c.n_epochs))
 
 	F_loss_meter = AverageMeter()
 
+	print('Flow Training...')
 	for epoch in range(c.n_epochs):
 		for iteration in range(c.n_its_per_epoch_gen):
 
@@ -74,21 +102,21 @@ try:
 
 				i += 1
 
-			if epoch == 0 or epoch % c.show_interval == 0:
-				print_log(epoch, c.n_epochs - 1, i + 1, len(train_loader), flow.scheduler.optimizer.param_groups[0]['lr'],
-							   c.show_interval, F_loss_meter, F_loss_meter)
+			if epoch == 0 or (epoch + 1) % c.show_interval == 0:
+				print_log(epoch+1, c.n_epochs, i, len(train_loader), flow.scheduler.optimizer.param_groups[0]['lr'],
+							   c.show_interval, F_loss_meter)
 
 			F_loss_meter.reset()
 
-		if epoch % c.save_interval == 0 or epoch + 1 == c.n_epochs:
+		if (epoch + 1) % c.save_interval == 0 or epoch + 1 == c.n_epochs:
 			if c.save_model == True:
 
 				checkpoint_F = {
-					'epoch': epoch,
+					'epoch': epoch + 1,
 					'model': flow.model.state_dict(),
 					'optimizer': flow.optim.state_dict(),
 					}
-				save_checkpoint(checkpoint_F, log_dir + '/' + c.dataset + '/n_epochs_' + str(c.n_epochs), 'checkpoint_F_epoch_%03d' % (epoch))
+				save_checkpoint(checkpoint_F, log_dir + '/' + c.dataset + '/hmc/n_epochs_' + str(c.n_epochs), 'checkpoint_F_epoch_%03d' % (epoch+1))
 
 			if c.test == True:
 				size = 10000
@@ -96,46 +124,30 @@ try:
 				size = 300000
 
 			with torch.no_grad():
-				real = get_real_data(c.dataset, c.test, size)
+				real = get_real_data(c.datapath, c.dataset, c.test, size)
 
-				if c.weighted:
-					inv, z = flow.model.sample(size)
-					inv = inv.cpu().detach().numpy() * scales
-				else:
-					#inv = model.sample(size).cpu().detach().numpy() * scales
-					inv, z = flow.model.sample(size)
-					inv = inv.cpu().detach().numpy() * scales
+				fake, _ = flow.model.sample(size)
+				fake = fake.cpu().detach().numpy() * scales
 
-			distributions = Distribution(real, inv, 'epoch_%03d' % (epoch) + '_target', log_dir + '/' + c.dataset + '/n_epochs_' + str(c.n_epochs), c.dataset, latent=False)
+			distributions = Distribution(real, fake, 'epoch_%03d' % (epoch+1) + '_target', 'Flow', log_dir + '/' + c.dataset + '/hmc/n_epochs_' + str(c.n_epochs), c.dataset)
 			distributions.plot()
 
 		flow.scheduler.step()
 except:
 	if c.checkpoint_on_error:
-		model.save(c.filename + '_ABORT')
+		flow.model.save(c.filename + '_ABORT')
 	raise 
 
-'''
-size = 1000000
-fake, z_ = flow.model.sample(size)
+#######################
+## Define Classifier ##
+#######################
 
-fake = fake.cpu().detach().numpy()
-fake *= scales
-
-s1 = pd.HDFStore('base.h5')
-
-s1.append('data', pd.DataFrame(fake))
-
-s1.close()
-sys.exit()
-'''
-
-D = netD(in_dim=data_shape, num_layers=c.n_layers_disc, internal_size=c.n_units_disc)
+D = netD(in_dim=data_shape, num_layers=c.n_layers_disc, n_units=c.n_units_disc, device=device, config=c)
 D.define_model_architecture_unreg()
 D.set_optimizer()
 
 print("\n" + "==="*30 + "\n")
-print(D)
+#print(D)
 print('Total parameters: %d' % sum([np.prod(p.size()) for p in D.params_trainable]))
 print("\n" + "==="*30 + "\n")
 
@@ -145,7 +157,10 @@ phi_2 = lambda dfake, lreal, lfake: criterion_BCE(dfake, lfake)
 
 D_loss_meter = AverageMeter()
 
-# Train refiner
+#########################
+## Training classifier ##
+#########################
+
 try:
 	flow.model.eval()
 
@@ -179,21 +194,21 @@ try:
 
 				i += 1
 
-			if epoch == 0 or epoch % c.show_interval == 0:
-				print_log(epoch, c.n_epochs - 1, i + 1, len(train_loader), D.scheduler.optimizer.param_groups[0]['lr'],
-							   c.show_interval, D_loss_meter, D_loss_meter)
+			if epoch == 0 or (epoch + 1) % c.show_interval == 0:
+				print_log(epoch+1, c.n_epochs, i, len(train_loader), D.scheduler.optimizer.param_groups[0]['lr'],
+							   c.show_interval, D_loss_meter)
 
 			D_loss_meter.reset()
 
-		if epoch % c.save_interval == 0 or epoch + 1 == c.n_epochs:
+		if (epoch+1) % c.save_interval == 0 or epoch + 1 == c.n_epochs:
 			if c.save_model == True:
 
 				checkpoint_D = {
-					'epoch': epoch,
+					'epoch': epoch + 1,
 					'model': D.model.state_dict(),
 					'optimizer': D.optim.state_dict(),
 					}
-				save_checkpoint(checkpoint_D, log_dir + '/' + c.dataset + '/n_epochs_' + str(c.n_epochs), 'checkpoint_D_epoch_%03d' % (epoch))
+				save_checkpoint(checkpoint_D, log_dir + '/' + c.dataset + '/hmc/n_epochs_' + str(c.n_epochs), 'checkpoint_D_epoch_%03d' % (epoch+1))
 
 			if c.test == True:
 				size = 10000
@@ -201,34 +216,36 @@ try:
 				size = 300000
 
 			with torch.no_grad():
-				real = get_real_data(c.dataset, c.test, size)
+				real = get_real_data(c.datapath, c.dataset, c.test, size)
 				noise = torch.randn(size, data_shape).detach().numpy()
 
 				inv, lat = flow.model.sample(size)
 				lat = lat.detach().numpy()
 
-				enc = flow.model.encode(torch.Tensor(real / scales)).detach().numpy()
+				enc = flow.model.encode(torch.Tensor(real/scales).double().to(device)).detach().numpy()
 
 				out_D = D(inv)
 				weights = torch.exp(out_D).cpu().detach().numpy().flatten()
 
 				inv = inv.cpu().detach().numpy() * scales
 
-			distributions = Distribution(real, inv, 'epoch_%03d' % (epoch) + '_target_weighted', log_dir + '/' + c.dataset + '/n_epochs_' + str(c.n_epochs), c.dataset, latent=False, weights=weights, extra_data = inv)
+			distributions = Distribution(real, inv, 'epoch_%03d' % (epoch+1) + '_target_weighted', 'Weighted', log_dir + '/' + c.dataset + '/hmc/n_epochs_' + str(c.n_epochs), c.dataset, latent=False, weights=weights, extra_data = inv)
 			distributions.plot()
-			distributions = Distribution(enc, lat, 'epoch_%03d' % (epoch) + '_latent_weighted', log_dir + '/' + c.dataset + '/n_epochs_' + str(c.n_epochs), c.dataset, latent=True, weights=weights)
+			distributions = Distribution(enc, lat, 'epoch_%03d' % (epoch+1) + '_latent_weighted', 'Weighted', log_dir + '/' + c.dataset + '/hmc/n_epochs_' + str(c.n_epochs), c.dataset, latent=True, weights=weights)
 			distributions.plot()
 
 		D.scheduler.step()
 
 except:
 	if c.checkpoint_on_error:
-		model.save(c.filename + '_ABORT')
+		D.save(c.filename + '_ABORT')
 	raise 
 
-# Generate unweighted optimal latent space
+##############
+## Sampling ##
+##############
 
-hamilton = HamiltonMCMC(flow.model, D, latent_dim=data_shape, L=30, eps=0.01, n_chains=100, burnout=5000)
+hamilton = HamiltonMCMC(flow, D, latent_dim=data_shape, L=30, eps=0.01, n_chains=100, burnin=5000)
 z, rate = hamilton.sample(data_shape, 10000)
 
 print('rate = ', rate)
@@ -244,16 +261,16 @@ out_D = D(fake)
 weights = torch.exp(out_D)
 
 #fake = fake.cpu().detach().numpy()
-real = get_real_data(c.dataset, c.test, size)
+real = get_real_data(c.datapath, c.dataset, c.test, size)
 dctr = torch.cat((fake, z_, weights), -1).cpu().detach().numpy()
 
 fake = fake.cpu().detach().numpy()
 fake *= scales
 
-s1 = pd.HDFStore('base.h5')
-s2 = pd.HDFStore('latent.h5')
-s3 = pd.HDFStore('refined.h5')
-s4 = pd.HDFStore('weighted.h5')
+s1 = pd.HDFStore(log_dir + '/' + c.dataset + '/hmc/n_epochs_' + str(c.n_epochs) + '/' + 'base.h5')
+s2 = pd.HDFStore(log_dir + '/' + c.dataset + '/hmc/n_epochs_' + str(c.n_epochs) + '/' + 'latent.h5')
+s3 = pd.HDFStore(log_dir + '/' + c.dataset + '/hmc/n_epochs_' + str(c.n_epochs) + '/' + 'refined.h5')
+s4 = pd.HDFStore(log_dir + '/' + c.dataset + '/hmc/n_epochs_' + str(c.n_epochs) + '/' + 'weighted.h5')
 
 s1.append('data', pd.DataFrame(fake))
 s2.append('data', pd.DataFrame(z.cpu().detach().numpy()))
@@ -265,5 +282,5 @@ s2.close()
 s3.close()
 s4.close()
 
-distributions = Distribution(real, inv, 'HMC', log_dir + '/' + c.dataset + '/n_epochs_' + str(c.n_epochs), c.dataset, latent=False, weights=[], extra_data=fake)
+distributions = Distribution(real, inv, 'HMC', 'HMC', log_dir + '/' + c.dataset + '/hmc/n_epochs_' + str(c.n_epochs), c.dataset, extra_data=fake)
 distributions.plot()

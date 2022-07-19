@@ -10,25 +10,23 @@ from survae.transforms import (
     AffineCouplingBijection,
 )
 from survae.nn.nets import MLP
-from survae.nn.layers import ElementwiseParams, LambdaLayer, scale_fn
-
-# Put this into main file and just feed information into the network
-device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
+from survae.nn.layers import ElementwiseParams, scale_fn
 
 
-class AugFlow:
+class INN(nn.Module):
     def __init__(
         self,
         in_dim=2,
-        aug_dim=0,
+        aug_dim=0, # if this in non-zero we have an augmented flow
         elwise_params=2,
         n_blocks=1,
         n_units=16,
         n_layers=1,
-        init_zeros=False,
-        dropout=False,
         actnorm = False,
-    ):  
+        device=torch.device("cpu"),
+        config=None,
+    ):
+        super(INN, self).__init__() 
         self.in_dim = in_dim
         self.aug_dim = aug_dim
         self.actnorm = actnorm
@@ -38,6 +36,7 @@ class AugFlow:
         self.n_blocks = n_blocks
         self.n_layers = n_layers
         self.device = device
+        self.config = config
 
     def define_model_architecture(self):
 
@@ -46,7 +45,13 @@ class AugFlow:
 
         hidden_units = [self.n_units for _ in range(self.n_layers)]
 
-        transforms = [Augment(StandardNormal((self.aug_dim,)), x_size=self.in_dim)]
+        if self.aug_dim:
+            print("Augmented Flow")
+            transforms = [Augment(StandardNormal((self.aug_dim,)), x_size=self.in_dim)]
+        else:
+            print("Baseline Flow")
+            transforms = []
+        
         for _ in range(self.n_blocks):
             net = nn.Sequential(
                 MLP(A // 2, P * A // 2, hidden_units=hidden_units, activation="relu"),
@@ -63,24 +68,24 @@ class AugFlow:
         self.model = (
             Flow(base_dist=StandardNormal((A,)), transforms=transforms)
             .double()
-            .to(device)
+            .to(self.device)
         )
         self.params_trainable = list(
             filter(lambda p: p.requires_grad, self.model.parameters())
         )
 
-    def set_optimizer(self, config):
+    def set_optimizer(self):
 
         self.optim = torch.optim.Adam(
             self.params_trainable,
-            lr=config.lr,
-            betas=config.betas,
+            lr=self.config.lr,
+            betas=self.config.betas,
             eps=1e-6,
-            weight_decay=config.weight_decay,
+            weight_decay=self.config.weight_decay,
         )
 
         self.scheduler = torch.optim.lr_scheduler.StepLR(
-            optimizer=self.optim, step_size=1, gamma=config.gamma
+            optimizer=self.optim, step_size=1, gamma=self.config.gamma
         )
 
     def forward(self, z):
