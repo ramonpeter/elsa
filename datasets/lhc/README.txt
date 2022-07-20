@@ -1,4 +1,4 @@
-Structure of the process W^{+} + (2,3,4) jets:
+Structure of the process $\mathrm{W}^{+}$ + (2,3,4) jets:
 
                
       /~~~~~~~~~~~~~~~ [0]
@@ -15,4 +15,4 @@ Structure of the process W^{+} + (2,3,4) jets:
 The numbers indicate the ordering in the event file.
 The following cuts are applied:
 
-    p_{T,j} > 20 GeV, abs(\eta_j) < 6.0, DeltaR_jj > 0.4
+$$p_{T,j} > 20 GeV, abs(\eta_j) < 6.0, DeltaR_jj > 0.4$$
