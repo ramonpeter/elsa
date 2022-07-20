@@ -298,8 +298,8 @@ class Observable(object):
 		# Only valid for two momenta
 		assert len(particle_id) == 2
   
-		phi1s = self.phi(x, particle_id=particle_id[0])
-		phi2s = self.phi(x, particle_id=particle_id[1])
+		phi1s = self.phi(x, particle_id=[particle_id[0]])
+		phi2s = self.phi(x, particle_id=[particle_id[1]])
 
 		dphi = np.fabs(phi1s - phi2s)
 		dphimin = np.where(dphi>np.pi, 2.0 * np.pi - dphi, dphi)
@@ -318,8 +318,8 @@ class Observable(object):
 		# Only valid for two momenta
 		assert len(particle_id) == 2
 
-		y1 = self.rapidity(x, particle_id=particle_id[0])
-		y2 = self.rapidity(x, particle_id=particle_id[1])
+		y1 = self.rapidity(x, particle_id=[particle_id[0]])
+		y2 = self.rapidity(x, particle_id=[particle_id[1]])
 		dy = np.abs(y1-y2)
 
 		return np.array(dy)

@@ -52,15 +52,13 @@ def add_momenta(x):
 		x = np.hstack((x[:,:3], p, x[:,3:]))
 	return x
 
-def remove_energies(x):
+def remove_energies(x, n_particles=2):
 
-	n_particles = 2
 	momenta = []
 
 	for p in range(n_particles):
-		E  = 4 * p
 		px = 4 * p + 1
-		pz = 4 * p + 4
+		pz = 4 * p + 3
 
 		momenta.extend([i for i in range(px,pz)])
 
@@ -68,14 +66,13 @@ def remove_energies(x):
 
 	return momenta
 
-def add_energies(x):
+def add_energies(x, masses = [0.0, 0.0]):
 
 	"""
 	add energies to 3 vectors
 	"""
-
-	n_particles = 2
-	masses = np.array([0., 0.])
+	n_particles = len(masses)
+	masses = np.array(masses)
 
 	particles = []
 
@@ -94,7 +91,7 @@ def add_energies(x):
 
 	particles = torch.cat(particles, dim=1)
 
-	return(particles)
+	return particles
 
 def save_checkpoint(state, log_dir, name):
 	path = log_dir + '/' + name + '.pth'
@@ -133,6 +130,24 @@ def get_real_data(datapath, dataset, test, sample_size):
 	data = data[choice]
 
 	return data
+
+def preprocess(x, inverse=False, masses=[]):
+	
+	if inverse:
+		n_particles = x.shape[1]//3
+	else:
+		n_particles = x.shape[1]//4
+ 
+    # remove energies
+	if inverse:
+		assert len(masses)==n_particles
+		x = add_energies(x, masses=masses)
+	else:
+		x = remove_energies(x, n_particles=n_particles)
+ 
+	# what else to do?
+    
+	return x
 
 def get_masses(x, topologies=[[0,1]]):
 
