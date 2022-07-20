@@ -31,3 +31,15 @@ Download + Install
    # then install in dev mode
    cd ELSA
    python setup.py develop
+
+
+Prepare datasets
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In order to download the datasets
+
+.. code:: sh
+
+   ./get_datasets.sh
+   
+This prepares and/or downloads the datasets into the 'datasets' folder.
