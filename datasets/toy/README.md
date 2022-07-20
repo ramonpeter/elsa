@@ -1,7 +1,4 @@
-# LHC dataset
-
-Structure of the process
-
+Structure of the process 
 $$\mathrm{p}\mathrm{p}\to\mathrm{W}^{+} + \\{2,3,4\\} \\, \mathrm{j}$$
 
  ```             
