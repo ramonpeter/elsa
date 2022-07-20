@@ -42,4 +42,4 @@ In order to download the datasets
 
    ./get_datasets.sh
    
-This prepares and/or downloads the datasets into the 'datasets' folder.
+This prepares and/or downloads the datasets into the **datasets** folder.
