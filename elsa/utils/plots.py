@@ -48,6 +48,10 @@ def plot_distribution_ratio(fig, axs, y_train, y_predict, label_name, args, weig
 
 	if args[6]:
 		axs[0].set_yscale('log')
+	else:
+		yfmt = ScalarFormatterForceFormat()
+		yfmt.set_powerlimits((0,0))
+		axs[0].yaxis.set_major_formatter(yfmt)
 
 	if extra != []:
 		y_extra = args[1](extra, args[0])
@@ -81,9 +85,6 @@ def plot_distribution_ratio(fig, axs, y_train, y_predict, label_name, args, weig
 					  axs[j].get_xticklabels() + axs[j].get_yticklabels()):
 			label.set_fontsize(FONTSIZE)
 
-	yfmt = ScalarFormatterForceFormat()
-	yfmt.set_powerlimits((0,0))
-	axs[0].yaxis.set_major_formatter(yfmt)
 
 	axs[0].set_ylabel('Normalized', fontsize = FONTSIZE)
 	axs[0].legend(loc='upper right', prop={'size': int(FONTSIZE-6)}, frameon=False)

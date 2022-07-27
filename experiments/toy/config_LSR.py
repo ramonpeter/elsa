@@ -3,7 +3,7 @@
 ##################
 
 datapath = '../../datasets/toy/'
-dataset = 'eight_gaussians' # eight_gaussians, pinwheel, circles
+dataset = 'pinwheel' # eight_gaussians, pinwheel, circles
 
 ########
 # Data #
@@ -41,12 +41,12 @@ mmd = False
 ################
 
 n_blocks = 8
-n_units  = 30
+n_units  = 32
 n_layers = 2
 aug_dim  = 0 
 
-n_units_disc  = 30
-n_layers_disc = 3
+n_units_disc  = 80
+n_layers_disc = 8
 
 latent_dim_gen = 2 #for LSRGAN
 

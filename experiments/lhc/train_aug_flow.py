@@ -7,14 +7,14 @@ import numpy as np
 import pandas as pd
 
 # Model
-from elsa.flow_model import INN
+from elsa.flow_model import INN, CubicSplineFlow, RQSFlow
 
 # Train utils
-from elsa.load_data import Loader
 from elsa.utils.train_utils import AverageMeter, print_log, get_real_data, save_checkpoint
+from elsa.utils.load_data import Loader
 
 # Plotting
-from elsa.utils.plotting.distributions import Distribution
+from elsa.utils.distributions import Distribution
 
 # Load config and opts
 import config_aug as c
@@ -59,6 +59,7 @@ print("\n" + "==="*30 + "\n")
 ##################
 
 flow = INN(in_dim=data_shape, aug_dim=c.aug_dim, n_blocks=c.n_blocks, n_units=c.n_units, n_layers=c.n_layers, device=device, config=c)
+#flow = RQSFlow(in_dim=data_shape, aug_dim=c.aug_dim, n_blocks=c.n_blocks, n_units=c.n_units, n_layers=c.n_layers, device=device, config=c)
 flow.define_model_architecture() # This seems to be a bit annoying to call again?!
 flow.set_optimizer()
 

@@ -28,8 +28,9 @@ share/python-wheels/
 *.egg
 MANIFEST
 *.h5
-/results
-/results/*
+results/
+results/*
+*.vscode
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

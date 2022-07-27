@@ -7,16 +7,16 @@ import numpy as np
 import pandas as pd
 
 # Models
-from flow_model import INN
-from GAN_models import netD
-from elsa.mcmc import HamiltonMCMC
+from elsa.flow_model import INN
+from elsa.gan_models import netD
+from elsa.modules.mcmc import HamiltonMCMC
 
 # Train utils
 from elsa.utils.train_utils import AverageMeter, print_log, get_real_data, save_checkpoint
-from elsa.load_data import Loader
+from elsa.utils.load_data import Loader
 
 # Plotting
-from elsa.utils.plotting.distributions import Distribution
+from elsa.utils.distributions import Distribution
 
 # Load config and opts
 import config_LSR as c

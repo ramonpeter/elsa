@@ -4,10 +4,7 @@ import torch
 from torch.autograd import Variable, grad
 import torch.nn as nn
 
-device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
-
-
-class HamiltonMCMC:
+class HamiltonMCMC(nn.Module):
 	"""
  	Hamilton Markov-Chain Monte Carlo
 	which samples from an energy-based model
@@ -24,6 +21,7 @@ class HamiltonMCMC:
 		eps: float=1e-2,
 		n_chains: int=1,
 		burnin: int=1000,
+		device=torch.device("cpu"),
 	):
 		"""
 		Args:
@@ -35,6 +33,7 @@ class HamiltonMCMC:
 			eps (float, optional): Step size. Defaults to 1e-2.
 			n_chains (int, optional): Parallelize the sampling. Defaults to 1.
 			burnin (int, optional): Number of events not used in final sample. Defaults to 1000.
+			device (torch.devie, optional): the chosen device to be used.
 		"""
 		super(HamiltonMCMC, self).__init__()
 
@@ -42,6 +41,7 @@ class HamiltonMCMC:
 		self.classifier = classifier
 		self.latent_dim = latent_dim
 		self.burnin = burnin
+		self.device = device
 
 		if M == None:
 			self.M = torch.diag(torch.Tensor([1] * self.latent_dim))
@@ -68,7 +68,7 @@ class HamiltonMCMC:
 	def leapfrog_step(self, q_init):
 
 		q = q_init
-		p_init = torch.randn(q.shape).detach().to(device)
+		p_init = torch.randn(q.shape).detach().to(self.device)
 		p = p_init.detach()
 
 		# Make half a step for momentum at the beginning
@@ -100,7 +100,7 @@ class HamiltonMCMC:
 			U_proposed = self.U(q)
 			K_proposed = torch.sum(torch.square(p), dim=-1, keepdim=True) / 2
 
-		u = torch.rand(self.n_chains, 1).to(device)
+		u = torch.rand(self.n_chains, 1).to(self.device)
 		mask = (u < torch.exp(U_init - U_proposed + K_init - K_proposed)).flatten()
 
 		q[~mask] = q_init[~mask]
@@ -112,7 +112,7 @@ class HamiltonMCMC:
 			torch.randn((self.n_chains, latent_dim))
 			.double()
 			.detach()
-			.to(device)
+			.to(self.device)
 		)
 		sample = []
 		accepted = 0

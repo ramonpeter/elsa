@@ -3,7 +3,7 @@
 ##################
 
 datapath = '../../datasets/lhc/'
-dataset = 'wp_3j' # wp_2j, wp_3j, wp_4j
+dataset = 'wp_2j' # wp_2j, wp_3j, wp_4j
 
 ########
 # Data #
@@ -17,6 +17,7 @@ scaler   = 1.
 ############
 
 lr = 1e-3
+max_lr = 1e-3
 
 batch_size = 1024 # maybe bigger batches?
 gamma = 0.995
@@ -27,17 +28,17 @@ betas = (0.9, 0.999)
 do_rev = False
 do_fwd = True
 
-n_epochs = 101
+n_epochs = 102
 n_its_per_epoch_gen = 1
 
 ################
 # Architecture #
 ################
 
-n_blocks = 14
-n_units  = 80
+n_blocks = 14 # was 14
+n_units  = 80 # was 80
 n_layers = 2
-aug_dim  = 16
+aug_dim  = 12
 
 ###################
 # Logging/preview #
@@ -46,8 +47,8 @@ aug_dim  = 16
 loss_names = ['L', 'L_rev']
 progress_bar = True
 
-show_interval = 10
-save_interval = 20
+show_interval = 5 # 10
+save_interval = 20 # 20
 
 ##################
 # Loading/saving #
