@@ -49,3 +49,13 @@ def boost(q, ph, metric):
     p[:, 1:] = ph[:, 1:] + c1[:, np.newaxis]*q[:, 1:]
 
     return p
+
+def boost_z(q, rapidity, inverse=False):
+    p = np.empty(q.shape)
+    sign = -1.0 if inverse else 1.0
+    p[:, :, 0] = q[:, :, 0] * np.cosh(rapidity) + sign * q[:, :, 3] * np.sinh(rapidity)
+    p[:, :, 1] = q[:, :, 1]
+    p[:, :, 2] = q[:, :, 2]
+    p[:, :, 3] = q[:, :, 3] * np.cosh(rapidity) + sign * q[:, :, 0] * np.sinh(rapidity)
+
+    return p

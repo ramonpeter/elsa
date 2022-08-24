@@ -177,11 +177,7 @@ class Distribution(Observable):
    			'dPhijj' : ([1,2], self.delta_phi, 40, (0,3.14) ,r'$\Delta\phi_{\mathrm{j}\mathrm{j}}$', r'\Delta\phi_{\mathrm{j}\mathrm{j}}',False),
 			'dEtajj' : ([1,2], self.delta_rapidity, 40, (0,5) ,r'$\Delta\eta_{\mathrm{j}\mathrm{j}}$', r'\Delta\eta_{\mathrm{j}\mathrm{j}}',False),
 			'dRjj' : ([1,2], self.delta_R, 40, (0,8) ,r'$\Delta R_{\mathrm{j}\mathrm{j}}$', r'\Delta R_{\mathrm{j}\mathrm{j}}',False),
-		 	'mjj' : ([1,2], self.invariant_mass, 40, (0,1000), r'$M_{\mathrm{j}\mathrm{j}}$ [GeV]', r'p_{x, j2}',False),
-			#---------------------#	
-			'logdRjj' : ([1,2], self.log_delta_R, 40, (-3,3) ,r'$\log\Delta R_{\mathrm{j}\mathrm{j}}$', r'\log\Delta R_{\mathrm{j}\mathrm{j}}',False),
-			'etaj1'   : ([1], self.pseudo_rapidity, 40, (-7,7) ,r'$\eta_{\mathrm{j}_1}$', r'\eta_{\mathrm{j}_1}',True),
-   			'cetaj1'   : ([1], self.pseudo_rapidity_cut, 40, (-3,3) ,r'$\eta_{\mathrm{j}_1}$', r'\eta_{\mathrm{j}_1}',False),
+		 	'mwjj' : ([0,1,2], self.invariant_mass, 50, (0,2000), r'$M_{\mathrm{W}\mathrm{j}\mathrm{j}}$ [GeV]', r'p_{x, j2}',False),
 		}	 
 
 		args2 = {			 
@@ -209,15 +205,27 @@ class Distribution(Observable):
 
 		args = {			 
 			'ptW' : ([0], self.transverse_momentum, 40, (0,300) ,r'$p_{\mathrm{T}, \mathrm{W}}$ [GeV]', r'p_{\mathrm{T}, \mathrm{W}}',False),
+			'pxW' : ([0], self.x_momentum, 50, (-160,160), r'$p_{x, \mathrm{W}}$ [GeV]', r'p_{x, \mathrm{W}}',False),
+			'pyW' : ([0], self.y_momentum, 50, (-160,160), r'$p_{y, \mathrm{W}}$ [GeV]', r'p_{y, \mathrm{W}}',False),
+			'pzW' : ([0], self.z_momentum, 50, (-600,600), r'$p_{z, \mathrm{W}}$ [GeV]', r'p_{z, \mathrm{W}}',False),
 			'EW'  : ([0], self.energy, 40, (0,1000), r'$E_{\mathrm{W}}$ [GeV]', r'E_{\mathrm{W}}',False),
 			#---------------------#		
 			'ptj1' : ([1], self.transverse_momentum, 40, (0,180) ,r'$p_{\mathrm{T}, \mathrm{j}_1}$ [GeV]', r'p_{\mathrm{T}, \mathrm{j}_1}',False),
+			'pxj1' : ([1], self.x_momentum, 40, (-120,120), r'$p_{x, \mathrm{j}_1}$ [GeV]', r'p_{x, \mathrm{j}_1}',False),
+			'pyj1' : ([1], self.y_momentum, 40, (-120,120), r'$p_{y, \mathrm{j}_1}$ [GeV]', r'p_{y, \mathrm{j}_1}',False),
+			'pzj1' : ([1], self.z_momentum, 50, (-400,400), r'$p_{z, \mathrm{j}_1}$ [GeV]', r'p_{z, \mathrm{j}_1}',False),
 			'Ej1'  : ([1], self.energy, 40, (0,600), r'$E_{\mathrm{j}_1}$ [GeV]', r'E_{\mathrm{j}_1}',False),
 			#---------------------#			
 			'ptj2' : ([2], self.transverse_momentum, 40, (0,180) ,r'$p_{\mathrm{T}, \mathrm{j}_2}$ [GeV]', r'p_{\mathrm{T}, \mathrm{j}_2}',False),
+			'pxj2' : ([2], self.x_momentum, 40, (-120,120), r'$p_{x, \mathrm{j}_2}$ [GeV]', r'p_{x, \mathrm{j}_2}',False),
+			'pyj2' : ([2], self.y_momentum, 40, (-120,120), r'$p_{y, \mathrm{j}_2}$ [GeV]', r'p_{y, \mathrm{j}_2}',False),
+			'pzj2' : ([2], self.z_momentum, 50, (-400,400), r'$p_{z, \mathrm{j}_2}$ [GeV]', r'p_{z, \mathrm{j}_2}',False),
 			'Ej2'  : ([2], self.energy, 40, (0,600), r'$E_{\mathrm{j}_2}$ [GeV]', r'E_{\mathrm{j}_2}',False),
 			#---------------------#			
 			'ptj3' : ([3], self.transverse_momentum, 40, (0,180) ,r'$p_{\mathrm{T}, \mathrm{j}_3}$ [GeV]', r'p_{\mathrm{T}, \mathrm{j}_3}',False),
+			'pxj3' : ([3], self.x_momentum, 40, (-120,120), r'$p_{x, \mathrm{j}_3}$ [GeV]', r'p_{x, \mathrm{j}_3}',False),
+			'pyj3' : ([3], self.y_momentum, 40, (-120,120), r'$p_{y, \mathrm{j}_3}$ [GeV]', r'p_{y, \mathrm{j}_3}',False),
+			'pzj3' : ([3], self.z_momentum, 50, (-400,400), r'$p_{z, \mathrm{j}_3}$ [GeV]', r'p_{z, \mathrm{j}_3}',False),
 			'Ej3'  : ([3], self.energy, 40, (0,600), r'$E_{\mathrm{j}_3}$ [GeV]', r'E_{\mathrm{j}_3}',False),
 			#---------------------#
    			'dPhij1j2' : ([1,2], self.delta_phi, 40, (0,3.14) ,r'$\Delta\phi_{\mathrm{j}_1\mathrm{j}_2}$', r'\Delta\phi_{\mathrm{j}_1\mathrm{j}_2}',False),
@@ -235,17 +243,17 @@ class Distribution(Observable):
 		} 
 
 		args2 = {			 
-			'ptW' : ([0], self.transverse_momentum, 40, (0,300) ,r'$p_{\mathrm{T}, \mathrm{W}}$ [GeV]', r'p_{\mathrm{T}, \mathrm{W}}',False),
-			'EW'  : ([0], self.energy, 40, (0,1000), r'$E_{\mathrm{W}}$ [GeV]', r'E_{\mathrm{W}}',False),
-			#---------------------#		
-			'ptj1' : ([1], self.transverse_momentum, 40, (0,180) ,r'$p_{\mathrm{T}, \mathrm{j}_1}$ [GeV]', r'p_{\mathrm{T}, \mathrm{j}_1}',False),
-			'Ej1'  : ([1], self.energy, 40, (0,600), r'$E_{\mathrm{j}_1}$ [GeV]', r'E_{\mathrm{j}_1}',False),
-			#---------------------#			
-			'ptj2' : ([2], self.transverse_momentum, 40, (0,180) ,r'$p_{\mathrm{T}, \mathrm{j}_2}$ [GeV]', r'p_{\mathrm{T}, \mathrm{j}_2}',False),
-			'Ej2'  : ([2], self.energy, 40, (0,600), r'$E_{\mathrm{j}_2}$ [GeV]', r'E_{\mathrm{j}_2}',False),
-			#---------------------#			
-			'ptj3' : ([3], self.transverse_momentum, 40, (0,180) ,r'$p_{\mathrm{T}, \mathrm{j}_3}$ [GeV]', r'p_{\mathrm{T}, \mathrm{j}_3}',False),
-			'Ej3'  : ([3], self.energy, 40, (0,600), r'$E_{\mathrm{j}_3}$ [GeV]', r'E_{\mathrm{j}_3}',False),
+			# 'ptW' : ([0], self.transverse_momentum, 40, (0,300) ,r'$p_{\mathrm{T}, \mathrm{W}}$ [GeV]', r'p_{\mathrm{T}, \mathrm{W}}',False),
+			# 'EW'  : ([0], self.energy, 40, (0,1000), r'$E_{\mathrm{W}}$ [GeV]', r'E_{\mathrm{W}}',False),
+			# #---------------------#		
+			# 'ptj1' : ([1], self.transverse_momentum, 40, (0,180) ,r'$p_{\mathrm{T}, \mathrm{j}_1}$ [GeV]', r'p_{\mathrm{T}, \mathrm{j}_1}',False),
+			# 'Ej1'  : ([1], self.energy, 40, (0,600), r'$E_{\mathrm{j}_1}$ [GeV]', r'E_{\mathrm{j}_1}',False),
+			# #---------------------#			
+			# 'ptj2' : ([2], self.transverse_momentum, 40, (0,180) ,r'$p_{\mathrm{T}, \mathrm{j}_2}$ [GeV]', r'p_{\mathrm{T}, \mathrm{j}_2}',False),
+			# 'Ej2'  : ([2], self.energy, 40, (0,600), r'$E_{\mathrm{j}_2}$ [GeV]', r'E_{\mathrm{j}_2}',False),
+			# #---------------------#			
+			# 'ptj3' : ([3], self.transverse_momentum, 40, (0,180) ,r'$p_{\mathrm{T}, \mathrm{j}_3}$ [GeV]', r'p_{\mathrm{T}, \mathrm{j}_3}',False),
+			# 'Ej3'  : ([3], self.energy, 40, (0,600), r'$E_{\mathrm{j}_3}$ [GeV]', r'E_{\mathrm{j}_3}',False),
 			#---------------------#
    			'dPhij1j2' : ([1,2], self.delta_phi, 40, (-3.14,3.14) ,r'$\Delta\phi_{\mathrm{j}_1\mathrm{j}_2}$', r'\Delta\phi_{\mathrm{j}_1\mathrm{j}_2}',False),
 			'dEtaj1j2' : ([1,2], self.delta_rapidity, 40, (-3,3) ,r'$\Delta\eta_{\mathrm{j}_1\mathrm{j}_2}$', r'\Delta\eta_{\mathrm{j}_1\mathrm{j}_2}',False),

@@ -98,12 +98,6 @@ class RationalQuadraticSplineCouplingBijection(CouplingBijection):
 		return 3 * self.num_bins + 1
 
 	def _elementwise_forward(self, x, elementwise_params):
-		#print(elementwise_params.shape[-1])
-		#print(self._output_dim_multiplier())
-		#sys.exit()
-		print(elementwise_params.shape[-1])
-		print(self._output_dim_multiplier())
-
 		assert elementwise_params.shape[-1] == self._output_dim_multiplier()
 		unnormalized_widths = elementwise_params[..., :self.num_bins]
 		unnormalized_heights = elementwise_params[..., self.num_bins:2*self.num_bins]

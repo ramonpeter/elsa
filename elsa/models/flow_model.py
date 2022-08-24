@@ -58,7 +58,7 @@ class INN(nn.Module):
         for _ in range(self.n_blocks):
             net = nn.Sequential(
                 MLP(A // 2, P * A // 2, hidden_units=hidden_units, activation='relu'), # was 'relu'
-                ElementwiseParams(self.elwise_params),
+                ElementwiseParams(P),
             )
             transforms.append(
                 AffineCouplingBijection(net, scale_fn=scale_fn("tanh_exp"))
@@ -90,6 +90,10 @@ class INN(nn.Module):
         self.scheduler = torch.optim.lr_scheduler.StepLR(
             optimizer=self.optim, step_size=1, gamma=self.config.gamma
         )
+        
+        # self.scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        #     optimizer=self.optim, max_lr=self.config.max_lr, steps_per_epoch=781, epochs=self.config.n_epochs
+        # )
 
     def forward(self, z):
         return self.model.sample_refined(z)
@@ -136,7 +140,8 @@ class RQSFlow(nn.Module):
     def define_model_architecture(self):
 
         A = self.in_dim + self.aug_dim
-        B = 32
+        B = 10
+        P = 3 * B + 1
 
         hidden_units = [self.n_units for _ in range(self.n_layers)]
 
@@ -153,8 +158,8 @@ class RQSFlow(nn.Module):
         
         for _ in range(self.n_blocks):
             net = nn.Sequential(
-                MLP(A // 2, 3*B + 1, hidden_units=hidden_units, activation="relu"),
-                ElementwiseParams(self.elwise_params),
+                MLP(A // 2, P * A // 2, hidden_units=hidden_units, activation="relu"),
+                ElementwiseParams(P),
             )
             transforms.append(
                 RationalQuadraticSplineCouplingBijection(net, num_bins=B)
@@ -230,8 +235,8 @@ class CubicSplineFlow(nn.Module):
     def define_model_architecture(self):
 
         A = self.in_dim + self.aug_dim
-        P = self.elwise_params
-        B = 60
+        B = 10 # Heidelberg used 60
+        P = 2 * B + 2
 
         hidden_units = [self.n_units for _ in range(self.n_layers)]
 
@@ -247,7 +252,10 @@ class CubicSplineFlow(nn.Module):
             print("Baseline Flow")
         
         for _ in range(self.n_blocks):
-            net = MLP(A // 2, 2*B + 2, hidden_units=hidden_units, activation="relu")
+            net = nn.Sequential(
+                MLP(A // 2, P * A // 2, hidden_units=hidden_units, activation="relu"),
+                ElementwiseParams(P),
+            )
             transforms.append(CubicSplineCouplingBijection(net, num_bins=B))
             transforms.append(Reverse(A))
         transforms.pop()

@@ -33,6 +33,9 @@ def Loader(datapath: str, dataset: str, batch_size: int, test: bool, scaler: flo
 	#scales = np.std(events)
 	if weighted:
 		scales = np.std(events[:,:-1],0)
+	elif datapath == '../../datasets/lhc/':
+		scales = np.std(events)
+		print(scales)
 	else:
 		scales = np.std(events,0)
 
