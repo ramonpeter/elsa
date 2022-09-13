@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 # Model
-from elsa.flow_model import INN, RQSFlow
+from elsa.models.flow_model import INN
 
 # Train utils
 from elsa.utils.load_data import Loader
@@ -59,7 +59,6 @@ print("\n" + "==="*30 + "\n")
 ##################
 
 flow = INN(in_dim=data_shape, aug_dim=c.aug_dim, n_blocks=c.n_blocks, n_units=c.n_units, n_layers=c.n_layers, device=device, config=c)
-#flow = RQSFlow(in_dim=data_shape, aug_dim=c.aug_dim, n_blocks=c.n_blocks, n_units=c.n_units, n_layers=c.n_layers, device=device, config=c)
 flow.define_model_architecture() # This seems to be a bit annoying to call again?!
 flow.set_optimizer()
 

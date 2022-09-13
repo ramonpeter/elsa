@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 
 # Models
-from elsa.flow_model import INN
-from elsa.gan_models import netD
+from elsa.models.flow_model import INN
+from elsa.models.gan_models import netD
 from elsa.modules.mcmc import HamiltonMCMC
 
 # Train utils

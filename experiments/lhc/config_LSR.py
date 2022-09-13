@@ -45,8 +45,8 @@ n_units  = 80
 n_layers = 2
 aug_dim  = 0 
 
-n_units_disc  = 64 #make bigger and better?
-n_layers_disc = 4
+n_units_disc  = 128 #make bigger and better?
+n_layers_disc = 8
 
 latent_dim_gen = 2 #for LSRGAN
 

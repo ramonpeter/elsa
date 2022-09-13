@@ -6,6 +6,7 @@ from survae.distributions import StandardNormal, StandardUniform
 from survae.transforms import (
     Reverse,
     Augment,
+    Shuffle,
     ActNormBijection,
     AffineCouplingBijection,
     RationalQuadraticSplineCouplingBijection,
@@ -42,8 +43,9 @@ class INN(nn.Module):
         self.config = config
 
     def define_model_architecture(self):
-
-        A = self.in_dim + self.aug_dim
+        
+        D = self.in_dim
+        A = D + self.aug_dim
         P = self.elwise_params
 
         hidden_units = [self.n_units for _ in range(self.n_layers)]
@@ -63,9 +65,9 @@ class INN(nn.Module):
             transforms.append(
                 AffineCouplingBijection(net, scale_fn=scale_fn("tanh_exp"))
             )
-            if self.actnorm:
-                transforms.append(ActNormBijection(A))
-            transforms.append(Reverse(A))
+            transforms.append(ActNormBijection(A))
+            transforms.append(Shuffle(A))
+            #transforms.append(Reverse(A))
         transforms.pop()
 
         self.model = (
@@ -94,7 +96,7 @@ class INN(nn.Module):
         # self.scheduler = torch.optim.lr_scheduler.OneCycleLR(
         #     optimizer=self.optim, max_lr=self.config.max_lr, steps_per_epoch=781, epochs=self.config.n_epochs
         # )
-
+        
     def forward(self, z):
         return self.model.sample_refined(z)
 
@@ -117,10 +119,10 @@ class RQSFlow(nn.Module):
         self,
         in_dim=2,
         aug_dim=0, # if this in non-zero we have an augmented flow
-        elwise_params=1,
         n_blocks=1,
         n_units=16,
         n_layers=1,
+        n_bins = 8,
         unit_hypercube = False,
         device=torch.device("cpu"),
         config=None,
@@ -129,10 +131,11 @@ class RQSFlow(nn.Module):
         self.in_dim = in_dim
         self.aug_dim = aug_dim
         assert aug_dim % 2 == 0
-        self.elwise_params = elwise_params
         self.n_units = n_units
         self.n_blocks = n_blocks
         self.n_layers = n_layers
+        self.n_bins = n_bins
+        
         self.unit_hypercube = unit_hypercube
         self.device = device
         self.config = config
@@ -140,7 +143,7 @@ class RQSFlow(nn.Module):
     def define_model_architecture(self):
 
         A = self.in_dim + self.aug_dim
-        B = 10
+        B = self.n_bins
         P = 3 * B + 1
 
         hidden_units = [self.n_units for _ in range(self.n_layers)]
@@ -216,6 +219,7 @@ class CubicSplineFlow(nn.Module):
         n_blocks=1,
         n_units=16,
         n_layers=1,
+        n_bins=10,
         unit_hypercube = False,
         device=torch.device("cpu"),
         config=None,
@@ -228,6 +232,9 @@ class CubicSplineFlow(nn.Module):
         self.n_units = n_units
         self.n_blocks = n_blocks
         self.n_layers = n_layers
+        self.n_bins = n_bins
+        
+        
         self.unit_hypercube = unit_hypercube
         self.device = device
         self.config = config
@@ -235,7 +242,7 @@ class CubicSplineFlow(nn.Module):
     def define_model_architecture(self):
 
         A = self.in_dim + self.aug_dim
-        B = 10 # Heidelberg used 60
+        B = self.n_bins # Heidelberg used 60
         P = 2 * B + 2
 
         hidden_units = [self.n_units for _ in range(self.n_layers)]

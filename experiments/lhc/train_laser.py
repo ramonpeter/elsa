@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 
 # Models
-from elsa.flow_model import INN
-from elsa.gan_models import netD
+from elsa.models.flow_model import INN
+from elsa.models.gan_models import netD
 from elsa.modules.mcmc import HamiltonMCMC
 
 # Train utils
@@ -47,6 +47,7 @@ print(f"device: {device}")
 ## Load data ##
 ###############
 
+# TODO: do better preprocessing!
 train_loader, validate_loader, dataset_size, data_shape, scales = Loader(c.datapath, c.dataset, c.batch_size, c.test, c.scaler, c.weighted, device)
 scales_tensor = torch.Tensor(scales).double().to(device)
 
@@ -142,6 +143,7 @@ except:
 ## Define Classifier ##
 #######################
 
+# TODO: Add an augmentation layer to make life easier!
 D = netD(in_dim=data_shape, num_layers=c.n_layers_disc, n_units=c.n_units_disc, device=device, config=c)
 D.define_model_architecture_unreg()
 D.set_optimizer()

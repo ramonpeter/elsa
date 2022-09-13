@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 # Model
-from elsa.flow_model import INN, CubicSplineFlow, RQSFlow
+from elsa.models.flow_model import INN, CubicSplineFlow, RQSFlow
 
 # Train utils
 from elsa.utils.train_utils import AverageMeter, print_log, get_real_data, save_checkpoint
@@ -46,8 +46,9 @@ print(f"device: {device}")
 ## Load data ##
 ###############
 
+# TODO: do better preprocessing!
 train_loader, validate_loader, dataset_size, data_shape, scales = Loader(c.datapath, c.dataset, c.batch_size, c.test, c.scaler, c.weighted, device)
-scales_tensor = torch.Tensor(scales).double().to(device)
+scales_tensor = torch.tensor(scales).double().to(device)
 
 if c.weighted:
 	data_shape -= 1
@@ -60,6 +61,7 @@ print("\n" + "==="*30 + "\n")
 
 flow = INN(in_dim=data_shape, aug_dim=c.aug_dim, n_blocks=c.n_blocks, n_units=c.n_units, n_layers=c.n_layers, device=device, config=c)
 #flow = RQSFlow(in_dim=data_shape, aug_dim=c.aug_dim, n_blocks=c.n_blocks, n_units=c.n_units, n_layers=c.n_layers, device=device, config=c)
+#flow = CubicSplineFlow(in_dim=data_shape, aug_dim=c.aug_dim, n_blocks=c.n_blocks, n_units=c.n_units, n_layers=c.n_layers, device=device, config=c)
 flow.define_model_architecture() # This seems to be a bit annoying to call again?!
 flow.set_optimizer()
 
