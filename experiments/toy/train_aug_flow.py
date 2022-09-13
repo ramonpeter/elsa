@@ -46,6 +46,7 @@ print(f"device: {device}")
 ## Load data ##
 ###############
 
+# TODO: Fix new scaler
 train_loader, validate_loader, dataset_size, data_shape, scales = Loader(c.datapath, c.dataset, c.batch_size, c.test, c.scaler, c.weighted, device)
 scales_tensor = torch.Tensor(scales).double().to(device)
 
