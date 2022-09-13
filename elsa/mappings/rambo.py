@@ -168,15 +168,20 @@ class RamboOnDietHadron(PhaseSpaceMapping):
     def __init__(self, e_had: float, nparticles: int, masses: list=None):
         """
         Args:
-            e_had (float): _description_
-            nparticles (int): _description_
-            masses (list, optional): _description_. Defaults to None.
+            e_had (float): hadronic center of mass energy.
+            nparticles (int): number of final state particles.
+            masses (list, optional): list of final state masses. Defaults to None.
         """
         super(RamboOnDietHadron, self).__init__(3 * nparticles - 2, 4 * nparticles)
         
         self.e_had = e_had
         self.nparticles = nparticles
         self.masses = masses
+        
+        # Make sure the list is as long as the number of
+        # finals state particles if given
+        if self.masses:
+            assert len(self.masses) == self.nparticles
         
         # Define min energy due to masses (no cuts etc)
         e_min = np.sum(self.masses) if self.masses else 0

@@ -4,6 +4,7 @@ import os
 import torch
 import numpy as np
 import pandas as pd
+from ..modules.preprocess import PhysicsScaler, SimpleScaler
 
 def read_files(DATAPATH, dataset, verbose=True):
 	events = []
@@ -33,11 +34,20 @@ def Loader(datapath: str, dataset: str, batch_size: int, test: bool, scaler: flo
 	#scales = np.std(events)
 	if weighted:
 		scales = np.std(events[:,:-1],0)
+		scaler = SimpleScaler(scales)
 	elif datapath == '../../datasets/lhc/':
-		scales = np.std(events)
+		e_had = 14000
+		nparticles = data.shape[1] // 4
+		masses = [80.419] + [0.] * (nparticles - 1)
+		scaler = PhysicsScaler(e_had, nparticles, masses)
 	else:
 		scales = np.std(events,0)
+		scaler = SimpleScaler(scales)
+  
+	# preprocess events
+	events = scaler.transform(events)
 
+	# split into train and validate
 	events_train = events[:split]
 	events_validate = events[validate_split:]
 
@@ -59,4 +69,4 @@ def Loader(datapath: str, dataset: str, batch_size: int, test: bool, scaler: flo
 			drop_last = True,
 			)
 
-	return train_loader, validate_loader, split, shape, scales
+	return train_loader, validate_loader, split, shape, scaler
