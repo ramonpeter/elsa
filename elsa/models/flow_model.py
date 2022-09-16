@@ -66,8 +66,7 @@ class INN(nn.Module):
                 AffineCouplingBijection(net, scale_fn=scale_fn("tanh_exp"))
             )
             transforms.append(ActNormBijection(A))
-            transforms.append(Shuffle(A))
-            #transforms.append(Reverse(A))
+            transforms.append(Reverse(A))
         transforms.pop()
 
         self.model = (
@@ -92,10 +91,6 @@ class INN(nn.Module):
         self.scheduler = torch.optim.lr_scheduler.StepLR(
             optimizer=self.optim, step_size=1, gamma=self.config.gamma
         )
-        
-        # self.scheduler = torch.optim.lr_scheduler.OneCycleLR(
-        #     optimizer=self.optim, max_lr=self.config.max_lr, steps_per_epoch=781, epochs=self.config.n_epochs
-        # )
         
     def forward(self, z):
         return self.model.sample_refined(z)

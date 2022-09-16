@@ -10,14 +10,15 @@ dataset = 'pinwheel' # eight_gaussians, pinwheel, circles
 ########
 
 weighted = False
-scaler   = 1.
+scale = None
+sample_size = 1000000
 
 ############
 # Training #
 ############
 
 lr = 1e-3
-max_lr = 1e-3
+max_lr = 5e-3
 
 batch_size = 1024 # maybe bigger batches?
 gamma = 0.995

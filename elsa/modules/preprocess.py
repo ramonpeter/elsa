@@ -4,9 +4,21 @@ from typing import Union
 import torch
 import numpy as np
 from ..mappings.rambo import RamboOnDietHadron
+from abc import ABC, abstractmethod
 
 
-class SimpleScaler:
+class Scaler(ABC):
+    
+    @abstractmethod
+    def transform(self):
+        pass
+        
+    @abstractmethod
+    def inverse_transform(self):
+        pass
+
+
+class SimpleScaler(Scaler):
     """Basic preprocessing"""
 
     def __init__(self, scale: np.ndarray, mean: np.ndarray=None):
@@ -48,7 +60,7 @@ class SimpleScaler:
             x += self.mean
         return x
     
-class PhysicsScaler:
+class PhysicsScaler(Scaler):
     """Propreccing of LHC data"""
 
     def __init__(self, e_had: float, n_particles: int, masses: list = None, **kwargs):

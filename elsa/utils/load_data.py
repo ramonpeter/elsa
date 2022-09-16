@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from ..modules.preprocess import PhysicsScaler, SimpleScaler
 
+
 def read_files(DATAPATH, dataset, verbose=True):
 	events = []
 	for file in os.listdir(DATAPATH):
@@ -16,7 +17,7 @@ def read_files(DATAPATH, dataset, verbose=True):
 
 	return events
 
-def Loader(datapath: str, dataset: str, batch_size: int, test: bool, scaler: float, weighted: bool, device):
+def Loader(datapath: str, dataset: str, batch_size: int, test: bool, scale: float, weighted: bool, device):
 
 
 	data = read_files(datapath, dataset)	
@@ -27,13 +28,13 @@ def Loader(datapath: str, dataset: str, batch_size: int, test: bool, scaler: flo
 		split = int(len(data) * 0.8)
 
 	validate_split = int(len(data) * 0.95)
-
-	events=data
 	
 	# Select a single global scale or one for each direction
-	#scales = np.std(events)
 	if weighted:
-		scales = np.std(events[:,:-1],0)
+		if scale is not None:
+			scales = scale
+		else:
+			scales = np.std(data[:,:-1],0)
 		scaler = SimpleScaler(scales)
 	elif datapath == '../../datasets/lhc/':
 		e_had = 14000
@@ -41,11 +42,14 @@ def Loader(datapath: str, dataset: str, batch_size: int, test: bool, scaler: flo
 		masses = [80.419] + [0.] * (nparticles - 1)
 		scaler = PhysicsScaler(e_had, nparticles, masses)
 	else:
-		scales = np.std(events,0)
+		if scale is not None:
+			scales = scale
+		else:
+			scales = np.std(data,0)
 		scaler = SimpleScaler(scales)
   
 	# preprocess events
-	events = scaler.transform(events)
+	events = scaler.transform(data)
 
 	# split into train and validate
 	events_train = events[:split]

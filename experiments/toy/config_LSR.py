@@ -10,7 +10,8 @@ dataset = 'pinwheel' # eight_gaussians, pinwheel, circles
 ########
 
 weighted = False
-scaler   = 1.
+scale = None
+sample_size = 1000000
 
 ############
 # Training #

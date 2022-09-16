@@ -47,8 +47,7 @@ print(f"device: {device}")
 ###############
 
 # TODO: Fix new scaler
-train_loader, validate_loader, dataset_size, data_shape, scales = Loader(c.datapath, c.dataset, c.batch_size, c.test, c.scaler, c.weighted, device)
-scales_tensor = torch.Tensor(scales).double().to(device)
+train_loader, validate_loader, dataset_size, data_shape, scaler = Loader(c.datapath, c.dataset, c.batch_size, c.test, c.scale, c.weighted, device)
 
 if c.weighted:
 	data_shape -= 1
@@ -86,14 +85,12 @@ try:
 
 			i=0
 
-			for data in train_loader:
+			for train_batch in train_loader:
 
 				flow.model.train()
 				flow.optim.zero_grad()
 
-				events = data / scales_tensor
-
-				f_loss = -flow.model.log_prob(events.to(device)).mean()
+				f_loss = -flow.model.log_prob(train_batch.to(device)).mean()
 
 				F_loss_meter.update(f_loss.item())
 
@@ -127,7 +124,7 @@ try:
 				real = get_real_data(c.datapath, c.dataset, c.test, size)
 
 				fake, _ = flow.model.sample(size)
-				fake = fake.cpu().detach().numpy() * scales
+				fake = scaler.inverse_transform(fake.cpu().detach().numpy())
 
 			distributions = Distribution(real, fake, 'epoch_%03d' % (epoch+1) + '_target', 'AugFlow', log_dir + '/' + c.dataset + '/augflow/n_epochs_' + str(c.n_epochs), c.dataset)
 			distributions.plot()
@@ -143,12 +140,11 @@ except:
 ## Sampling ##
 ##############
 
-size = 1000000 # Should be part of the config
+size = c.sample_size
 
 # Get flow samples
 fake, _ = flow.model.sample(size)
-fake = fake.cpu().detach().numpy()
-fake *= scales
+fake = scaler.inverse_transform(fake.cpu().detach().numpy())
 
 # Get real samples
 real = get_real_data(c.datapath, c.dataset, c.test, size)

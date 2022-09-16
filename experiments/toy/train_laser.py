@@ -12,8 +12,8 @@ from elsa.models.gan_models import netD
 from elsa.modules.mcmc import HamiltonMCMC
 
 # Train utils
-from elsa.utils.train_utils import AverageMeter, print_log, get_real_data, save_checkpoint
 from elsa.utils.load_data import Loader
+from elsa.utils.train_utils import AverageMeter, print_log, get_real_data, save_checkpoint
 
 # Plotting
 from elsa.utils.distributions import Distribution
@@ -48,8 +48,7 @@ print(f"device: {device}")
 ###############
 
 # TODO: Fix new scaler
-train_loader, validate_loader, dataset_size, data_shape, scales = Loader(c.datapath, c.dataset, c.batch_size, c.test, c.scaler, c.weighted, device)
-scales_tensor = torch.Tensor(scales).double().to(device)
+train_loader, validate_loader, dataset_size, data_shape, scaler = Loader(c.datapath, c.dataset, c.batch_size, c.test, c.scale, c.weighted, device)
 
 if c.weighted:
 	data_shape -= 1
@@ -87,14 +86,12 @@ try:
 
 			i=0
 
-			for data in train_loader:
+			for train_batch in train_loader:
 
 				flow.model.train()
 				flow.optim.zero_grad()
 
-				events = data / scales_tensor
-
-				f_loss = -flow.model.log_prob(events.to(device)).mean()
+				f_loss = -flow.model.log_prob(train_batch.to(device)).mean()
 
 				F_loss_meter.update(f_loss.item())
 
@@ -128,7 +125,7 @@ try:
 				real = get_real_data(c.datapath, c.dataset, c.test, size)
 
 				fake, _ = flow.model.sample(size)
-				fake = fake.cpu().detach().numpy() * scales
+				fake = scaler.inverse_transform(fake.cpu().detach().numpy())
 
 			distributions = Distribution(real, fake, 'epoch_%03d' % (epoch+1) + '_target', 'Flow', log_dir + '/' + c.dataset + '/hmc/n_epochs_' + str(c.n_epochs), c.dataset)
 			distributions.plot()
@@ -171,9 +168,7 @@ try:
 
 			i=0
 
-			for data in train_loader:
-
-				data /= scales_tensor
+			for train_batch in train_loader:
 
 				D.model.train()
 				D.optim.zero_grad()
@@ -181,7 +176,7 @@ try:
 				label_real = torch.ones(c.batch_size).double().to(device)
 				label_fake = torch.zeros(c.batch_size).double().to(device)
 
-				d_result_real = D(data).view(-1)
+				d_result_real = D(train_batch).view(-1)
 				d_loss_real_ = phi_1(d_result_real, label_real, None).mean(-1)
 		
 				fake, lat = flow.model.sample(c.batch_size)
@@ -217,20 +212,21 @@ try:
 				size = 300000
 
 			with torch.no_grad():
-				real = get_real_data(c.datapath, c.dataset, c.test, size)
+				real = get_real_data(c.datapath, c.dataset, c.test, size, scaler)
+    
 				noise = torch.randn(size, data_shape).detach().numpy()
 
 				inv, lat = flow.model.sample(size)
 				lat = lat.detach().numpy()
 
-				enc = flow.model.encode(torch.Tensor(real/scales).double().to(device)).detach().numpy()
+				enc = flow.model.encode(torch.Tensor(real).double().to(device)).detach().numpy()
 
 				out_D = D(inv)
 				weights = torch.exp(out_D).cpu().detach().numpy().flatten()
 
-				inv = inv.cpu().detach().numpy() * scales
+				inv = scaler.inverse_transform(inv.cpu().detach().numpy())
 
-			distributions = Distribution(real, inv, 'epoch_%03d' % (epoch+1) + '_target_weighted', 'Weighted', log_dir + '/' + c.dataset + '/hmc/n_epochs_' + str(c.n_epochs), c.dataset, latent=False, weights=weights, extra_data = inv)
+			distributions = Distribution(scaler.inverse_transform(real), inv, 'epoch_%03d' % (epoch+1) + '_target_weighted', 'Weighted', log_dir + '/' + c.dataset + '/hmc/n_epochs_' + str(c.n_epochs), c.dataset, latent=False, weights=weights, extra_data = inv)
 			distributions.plot()
 			distributions = Distribution(enc, lat, 'epoch_%03d' % (epoch+1) + '_latent_weighted', 'Weighted', log_dir + '/' + c.dataset + '/hmc/n_epochs_' + str(c.n_epochs), c.dataset, latent=True, weights=weights)
 			distributions.plot()
@@ -246,27 +242,32 @@ except:
 ## Sampling ##
 ##############
 
-hamilton = HamiltonMCMC(flow, D, latent_dim=data_shape, L=30, eps=0.01, n_chains=100, burnin=5000)
-z, rate = hamilton.sample(data_shape, 10000)
+size = c.sample_size
+N_CHAINS = 100
 
+# Get refined samples
+hamilton = HamiltonMCMC(flow, D, latent_dim=data_shape, L=30, eps=0.01, n_chains=N_CHAINS, burnin=5000)
+z, rate = hamilton.sample(data_shape, size // N_CHAINS)
 print('rate = ', rate)
 
-inv = flow.model.sample_refined(z)
-inv = inv.cpu().detach().numpy() * scales
+refined = flow.model.sample_refined(z)
+refined = scaler.inverse_transform(refined.cpu().detach().numpy())
+z = z.cpu().detach().numpy()
 
-size = 1000000
-
-fake, z_ = flow.model.sample(size)
-
+# get base samples and weights
+fake, z_base = flow.model.sample(size)
 out_D = D(fake)
 weights = torch.exp(out_D)
+z_base = z_base.cpu().detach().numpy()
+weights = weights.cpu().detach().numpy()
+fake = scaler.inverse_transform(fake.cpu().detach().numpy())
 
-#fake = fake.cpu().detach().numpy()
+# get DCTR samples
+dctr = np.concatenate((fake, z_base, weights), axis=-1)
+
+# get real samples
 real = get_real_data(c.datapath, c.dataset, c.test, size)
-dctr = torch.cat((fake, z_, weights), -1).cpu().detach().numpy()
 
-fake = fake.cpu().detach().numpy()
-fake *= scales
 
 s1 = pd.HDFStore(log_dir + '/' + c.dataset + '/hmc/n_epochs_' + str(c.n_epochs) + '/' + 'base.h5')
 s2 = pd.HDFStore(log_dir + '/' + c.dataset + '/hmc/n_epochs_' + str(c.n_epochs) + '/' + 'latent.h5')
@@ -274,8 +275,8 @@ s3 = pd.HDFStore(log_dir + '/' + c.dataset + '/hmc/n_epochs_' + str(c.n_epochs) 
 s4 = pd.HDFStore(log_dir + '/' + c.dataset + '/hmc/n_epochs_' + str(c.n_epochs) + '/' + 'weighted.h5')
 
 s1.append('data', pd.DataFrame(fake))
-s2.append('data', pd.DataFrame(z.cpu().detach().numpy()))
-s3.append('data', pd.DataFrame(inv))
+s2.append('data', pd.DataFrame(z))
+s3.append('data', pd.DataFrame(refined))
 s4.append('data', pd.DataFrame(dctr))
 
 s1.close()
@@ -283,5 +284,5 @@ s2.close()
 s3.close()
 s4.close()
 
-distributions = Distribution(real, inv, 'HMC', 'HMC', log_dir + '/' + c.dataset + '/hmc/n_epochs_' + str(c.n_epochs), c.dataset, extra_data=fake)
+distributions = Distribution(real, refined, 'HMC', 'HMC', log_dir + '/' + c.dataset + '/hmc/n_epochs_' + str(c.n_epochs), c.dataset, extra_data=fake)
 distributions.plot()

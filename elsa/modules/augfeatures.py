@@ -3,7 +3,7 @@
 from typing import Tuple, Iterable, Union, Callable, List
 import torch
 import torch.nn as nn
-from scaler import Scaler
+from .preprocess import Scaler
 
 
 class _Augment(nn.Module):
@@ -231,7 +231,7 @@ class AugFeatures(_Augment):
     features to the 4-vector prescription
     """
 
-    def __init__(self, scaler_fn: Union[float, Callable], *args, **kwargs):
+    def __init__(self, scaler_fn: Union[float, Scaler], *args, **kwargs):
         """See base class docstring for all args and kwargs"""
         super(AugFeatures, self).__init__(*args, **kwargs)
 
@@ -240,15 +240,15 @@ class AugFeatures(_Augment):
     def _preprocess(self, x, inverse=False):
 
         if not inverse:
-            if isinstance(self.scaler_fn, Callable):
-                return self.scaler_fn(x)
+            if isinstance(self.scaler_fn, Scaler):
+                return self.scaler_fn.transform(x)
             elif isinstance(self.scaler_fn, float):
                 return x / self.scaler_fn
             else:
                 raise ValueError("Scaler function must be either a callable or a float")
         else:
-            if isinstance(self.scaler_fn, Callable):
-                return self.scaler_fn(x, inverse=True)
+            if isinstance(self.scaler_fn, Scaler):
+                return self.scaler_fn.inverse_transform(x)
             elif isinstance(self.scaler_fn, float):
                 return x * self.scaler_fn
             else:
