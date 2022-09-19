@@ -26,7 +26,7 @@ class INN(nn.Module):
         n_blocks=1,
         n_units=16,
         n_layers=1,
-        actnorm = True,
+        steps_per_epoch = None,
         device=torch.device("cpu"),
         config=None,
     ):
@@ -38,7 +38,7 @@ class INN(nn.Module):
         self.n_units = n_units
         self.n_blocks = n_blocks
         self.n_layers = n_layers
-        self.actnorm = actnorm
+        self.steps_per_epoch = steps_per_epoch
         self.device = device
         self.config = config
 
@@ -88,9 +88,14 @@ class INN(nn.Module):
             weight_decay=self.config.weight_decay,
         )
         
-        self.scheduler = torch.optim.lr_scheduler.StepLR(
-            optimizer=self.optim, step_size=1, gamma=self.config.gamma
-        )
+        if self.steps_per_epoch is not None:
+            self.scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer=self.optim, max_lr=self.config.max_lr, steps_per_epoch=self.steps_per_epoch, epochs=self.config.n_epochs
+            )
+        else: 
+            self.scheduler = torch.optim.lr_scheduler.StepLR(
+                optimizer=self.optim, step_size=1, gamma=self.config.gamma
+            )
         
     def forward(self, z):
         return self.model.sample_refined(z)
@@ -118,6 +123,7 @@ class RQSFlow(nn.Module):
         n_units=16,
         n_layers=1,
         n_bins = 8,
+        steps_per_epoch = None,
         unit_hypercube = False,
         device=torch.device("cpu"),
         config=None,
@@ -131,6 +137,7 @@ class RQSFlow(nn.Module):
         self.n_layers = n_layers
         self.n_bins = n_bins
         
+        self.steps_per_epoch = steps_per_epoch
         self.unit_hypercube = unit_hypercube
         self.device = device
         self.config = config
@@ -184,9 +191,14 @@ class RQSFlow(nn.Module):
             weight_decay=self.config.weight_decay,
         )
 
-        self.scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer=self.optim, max_lr=self.config.max_lr, steps_per_epoch=781, epochs=self.config.n_epochs
-        )
+        if self.steps_per_epoch is not None:
+            self.scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer=self.optim, max_lr=self.config.max_lr, steps_per_epoch=self.steps_per_epoch, epochs=self.config.n_epochs
+            )
+        else: 
+            self.scheduler = torch.optim.lr_scheduler.StepLR(
+                optimizer=self.optim, step_size=1, gamma=self.config.gamma
+            )
 
     def forward(self, z):
         return self.model.sample_refined(z)
@@ -215,6 +227,7 @@ class CubicSplineFlow(nn.Module):
         n_units=16,
         n_layers=1,
         n_bins=10,
+        steps_per_epoch = None,
         unit_hypercube = False,
         device=torch.device("cpu"),
         config=None,
@@ -229,7 +242,7 @@ class CubicSplineFlow(nn.Module):
         self.n_layers = n_layers
         self.n_bins = n_bins
         
-        
+        self.steps_per_epoch = steps_per_epoch
         self.unit_hypercube = unit_hypercube
         self.device = device
         self.config = config
@@ -281,9 +294,14 @@ class CubicSplineFlow(nn.Module):
             weight_decay=self.config.weight_decay,
         )
 
-        self.scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer=self.optim, max_lr=self.config.max_lr, steps_per_epoch=781, epochs=self.config.n_epochs
-        )
+        if self.steps_per_epoch is not None:
+            self.scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer=self.optim, max_lr=self.config.max_lr, steps_per_epoch=self.steps_per_epoch, epochs=self.config.n_epochs
+            )
+        else: 
+            self.scheduler = torch.optim.lr_scheduler.StepLR(
+                optimizer=self.optim, step_size=1, gamma=self.config.gamma
+            )
 
     def forward(self, z):
         return self.model.sample_refined(z)

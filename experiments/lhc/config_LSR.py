@@ -10,14 +10,15 @@ dataset = 'wp_2j' # wp_2j, wp_3j, wp_4j
 ########
 
 weighted = False
-scaler   = 1.
+scale = None
+sample_size = 1000000
 
 ############
 # Training #
 ############
 
-lr = 1e-3
-lr_ref = 1e-3
+lr = 1e-4
+lr_ref = 5e-3
 
 batch_size = 1024
 gamma = 0.995

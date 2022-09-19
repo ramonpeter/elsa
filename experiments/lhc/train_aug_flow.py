@@ -10,8 +10,8 @@ import pandas as pd
 from elsa.models.flow_model import INN, CubicSplineFlow, RQSFlow
 
 # Train utils
-from elsa.utils.train_utils import AverageMeter, print_log, get_real_data, save_checkpoint
 from elsa.utils.load_data import Loader
+from elsa.utils.train_utils import AverageMeter, print_log, get_real_data, save_checkpoint
 
 # Plotting
 from elsa.utils.distributions import Distribution
@@ -47,9 +47,8 @@ print(f"device: {device}")
 ###############
 
 # TODO: Fix new scaler
-train_loader, validate_loader, dataset_size, data_shape, scales = Loader(c.datapath, c.dataset, c.batch_size, c.test, c.scaler, c.weighted, device)
-scales_tensor = torch.tensor(scales).double().to(device)
-
+train_loader, validate_loader, dataset_size, data_shape, scaler = Loader(c.datapath, c.dataset, c.batch_size, c.test, c.scale, c.weighted, device)
+STEPS_PER_EPOCH = len(train_loader)
 if c.weighted:
 	data_shape -= 1
 
@@ -59,10 +58,9 @@ print("\n" + "==="*30 + "\n")
 ## Define Model ##
 ##################
 
-flow = INN(in_dim=data_shape, aug_dim=c.aug_dim, n_blocks=c.n_blocks, n_units=c.n_units, n_layers=c.n_layers, device=device, config=c)
-#flow = RQSFlow(in_dim=data_shape, aug_dim=c.aug_dim, n_blocks=c.n_blocks, n_units=c.n_units, n_layers=c.n_layers, device=device, config=c)
-#flow = CubicSplineFlow(in_dim=data_shape, aug_dim=c.aug_dim, n_blocks=c.n_blocks, n_units=c.n_units, n_layers=c.n_layers, device=device, config=c)
-flow.define_model_architecture() # This seems to be a bit annoying to call again?!
+flow = RQSFlow(in_dim=data_shape, aug_dim=c.aug_dim, n_blocks=c.n_blocks, n_units=c.n_units, n_layers=c.n_layers, device=device, config=c, steps_per_epoch=STEPS_PER_EPOCH)
+#flow = CubicSplineFlow(in_dim=data_shape, aug_dim=c.aug_dim, n_blocks=c.n_blocks, n_units=c.n_units, n_layers=c.n_layers, device=device, config=c, steps_per_epoch=STEPS_PER_EPOCH)
+flow.define_model_architecture()
 flow.set_optimizer()
 
 print("\n" + "==="*30 + "\n")
@@ -88,19 +86,18 @@ try:
 
 			i=0
 
-			for data in train_loader:
+			for train_batch in train_loader:
 
 				flow.model.train()
 				flow.optim.zero_grad()
 
-				events = data / scales_tensor
-
-				f_loss = -flow.model.log_prob(events.to(device)).mean()
+				f_loss = -flow.model.log_prob(train_batch.to(device)).mean()
 
 				F_loss_meter.update(f_loss.item())
 
 				f_loss.backward()
 				flow.optim.step()
+				flow.scheduler.step() # put here when using OneCycleLR
 
 				i += 1
 
@@ -129,12 +126,11 @@ try:
 				real = get_real_data(c.datapath, c.dataset, c.test, size)
 
 				fake, _ = flow.model.sample(size)
-				fake = fake.cpu().detach().numpy() * scales
+				fake = scaler.inverse_transform(fake.cpu().detach().numpy())
 
 			distributions = Distribution(real, fake, 'epoch_%03d' % (epoch+1) + '_target', 'AugFlow', log_dir + '/' + c.dataset + '/augflow/n_epochs_' + str(c.n_epochs), c.dataset)
 			distributions.plot()
 		
-		flow.scheduler.step()
 except:
 	if c.checkpoint_on_error:
 		flow.model.save(c.filename + '_ABORT')
@@ -145,12 +141,12 @@ except:
 ## Sampling ##
 ##############
 
-size = 1000000 # Should be part of the config
+size = c.sample_size
 
 # Get flow samples
 fake, _ = flow.model.sample(size)
 fake = fake.cpu().detach().numpy()
-fake *= scales
+fake = scaler.inverse_transform(fake.cpu().detach().numpy())
 
 # Get real samples
 real = get_real_data(c.datapath, c.dataset, c.test, size)
