@@ -68,7 +68,7 @@ print("\n" + "===" * 30 + "\n")
 ## Define Flow Model ##
 #######################
 
-flow = RQSFlow(
+flow = INN(
     in_dim=data_shape,
     aug_dim=c.aug_dim,
     n_blocks=c.n_blocks,
@@ -219,11 +219,16 @@ try:
 
                 label_real = torch.ones(c.batch_size).double().to(device)
                 label_fake = torch.zeros(c.batch_size).double().to(device)
+                
+                train_batch = scaler.inverse_transform(train_batch.cpu().detach().numpy())
+                train_batch = torch.tensor(train_batch).to(device)
 
                 d_result_real = D(train_batch).view(-1)
                 d_loss_real_ = phi_1(d_result_real, label_real, None).mean(-1)
 
                 fake, lat = flow.model.sample(c.batch_size)
+                fake = scaler.inverse_transform(fake.cpu().detach().numpy())
+                fake = torch.tensor(fake).to(device)
                 d_result_fake = D(fake).view(-1)
                 d_loss_fake_ = phi_2(d_result_fake, None, label_fake).mean()
                 d_loss = d_loss_real_ + d_loss_fake_

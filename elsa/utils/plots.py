@@ -52,6 +52,7 @@ def plot_distribution_ratio(fig, axs, y_train, y_predict, label_name, args, weig
 		yfmt = ScalarFormatterForceFormat()
 		yfmt.set_powerlimits((0,0))
 		axs[0].yaxis.set_major_formatter(yfmt)
+		#axs[0].set_ylim(ymin=0)
 
 	if extra != []:
 		y_extra = args[1](extra, args[0])

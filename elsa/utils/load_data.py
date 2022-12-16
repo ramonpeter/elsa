@@ -4,7 +4,7 @@ import os
 import torch
 import numpy as np
 import pandas as pd
-from ..modules.preprocess import PhysicsScaler, SimpleScaler
+from ..modules.preprocess import RamboScaler, SimpleScaler, SherpaScaler, ThreeMomScaler, MinimalRepScaler
 
 
 def read_files(DATAPATH, dataset, verbose=True):
@@ -40,7 +40,7 @@ def Loader(datapath: str, dataset: str, batch_size: int, test: bool, scale: floa
 		e_had = 14000
 		nparticles = data.shape[1] // 4
 		masses = [80.419] + [0.] * (nparticles - 1)
-		scaler = PhysicsScaler(e_had, nparticles, masses)
+		scaler = RamboScaler(e_had, nparticles, masses)
 	else:
 		if scale is not None:
 			scales = scale

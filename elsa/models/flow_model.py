@@ -12,6 +12,7 @@ from survae.transforms import (
     RationalQuadraticSplineCouplingBijection,
     CubicSplineCouplingBijection,
     Sigmoid,
+    Logit,
 )
 from survae.nn.nets import MLP
 from survae.nn.layers import ElementwiseParams, scale_fn
@@ -26,6 +27,7 @@ class INN(nn.Module):
         n_blocks=1,
         n_units=16,
         n_layers=1,
+        unit_hypercube = True,
         steps_per_epoch = None,
         device=torch.device("cpu"),
         config=None,
@@ -41,32 +43,38 @@ class INN(nn.Module):
         self.steps_per_epoch = steps_per_epoch
         self.device = device
         self.config = config
+        self.unit_hypercube  = unit_hypercube
 
     def define_model_architecture(self):
         
-        D = self.in_dim
-        A = D + self.aug_dim
+        A = self.in_dim + self.aug_dim
+        SPLITS = [A - A // 2, A // 2]
         P = self.elwise_params
 
         hidden_units = [self.n_units for _ in range(self.n_layers)]
 
+        if self.unit_hypercube:
+            transforms = [Logit()]
+        else:
+            transforms = []
+        
         if self.aug_dim:
             print("Augmented Flow")
-            transforms = [Augment(StandardNormal((self.aug_dim,)), x_size=self.in_dim)]
+            transforms.append(Augment(StandardNormal((self.aug_dim,)), x_size=self.in_dim))
         else:
             print("Baseline Flow")
-            transforms = []
 
         for _ in range(self.n_blocks):
             net = nn.Sequential(
-                MLP(A // 2, P * A // 2, hidden_units=hidden_units, activation='relu'), # was 'relu'
+                MLP(SPLITS[0], P * SPLITS[1], hidden_units=hidden_units, activation='relu'), # was 'relu'
                 ElementwiseParams(P),
             )
             transforms.append(
                 AffineCouplingBijection(net, scale_fn=scale_fn("tanh_exp"))
             )
             transforms.append(ActNormBijection(A))
-            transforms.append(Reverse(A))
+            transforms.append(Shuffle(A))
+            #transforms.append(Reverse(A))
         transforms.pop()
 
         self.model = (
@@ -122,9 +130,9 @@ class RQSFlow(nn.Module):
         n_blocks=1,
         n_units=16,
         n_layers=1,
-        n_bins = 8,
+        n_bins = 10,
         steps_per_epoch = None,
-        unit_hypercube = False,
+        unit_hypercube = True,
         device=torch.device("cpu"),
         config=None,
     ):
@@ -143,8 +151,8 @@ class RQSFlow(nn.Module):
         self.config = config
 
     def define_model_architecture(self):
-
         A = self.in_dim + self.aug_dim
+        SPLITS = [A - A // 2, A // 2]
         B = self.n_bins
         P = 3 * B + 1
 
@@ -163,13 +171,14 @@ class RQSFlow(nn.Module):
         
         for _ in range(self.n_blocks):
             net = nn.Sequential(
-                MLP(A // 2, P * A // 2, hidden_units=hidden_units, activation="relu"),
+                MLP(SPLITS[0], P * SPLITS[1], hidden_units=hidden_units, activation="relu"),
                 ElementwiseParams(P),
             )
             transforms.append(
                 RationalQuadraticSplineCouplingBijection(net, num_bins=B)
             )
-            transforms.append(Reverse(A))
+            transforms.append(Shuffle(A))
+            #transforms.append(Reverse(A))
         transforms.pop()
 
         self.model = (
@@ -228,7 +237,7 @@ class CubicSplineFlow(nn.Module):
         n_layers=1,
         n_bins=10,
         steps_per_epoch = None,
-        unit_hypercube = False,
+        unit_hypercube = True,
         device=torch.device("cpu"),
         config=None,
     ):
@@ -250,6 +259,7 @@ class CubicSplineFlow(nn.Module):
     def define_model_architecture(self):
 
         A = self.in_dim + self.aug_dim
+        SPLITS = [A - A // 2, A // 2]
         B = self.n_bins # Heidelberg used 60
         P = 2 * B + 2
 
@@ -268,11 +278,12 @@ class CubicSplineFlow(nn.Module):
         
         for _ in range(self.n_blocks):
             net = nn.Sequential(
-                MLP(A // 2, P * A // 2, hidden_units=hidden_units, activation="relu"),
+                MLP(SPLITS[0], P * SPLITS[1], hidden_units=hidden_units, activation="relu"),
                 ElementwiseParams(P),
             )
             transforms.append(CubicSplineCouplingBijection(net, num_bins=B))
-            transforms.append(Reverse(A))
+            transforms.append(Shuffle(A))
+            #transforms.append(Reverse(A))
         transforms.pop()
 
         self.model = (

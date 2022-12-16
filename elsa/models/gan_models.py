@@ -94,6 +94,7 @@ class netD(nn.Module):
         in_dim=2,
         n_units=16,
         num_layers=1,
+        steps_per_epoch = None,
         device=torch.device("cpu"),
         config=None,
     ):
@@ -104,6 +105,7 @@ class netD(nn.Module):
         self.num_layers = num_layers
         self.device = device
         self.config = config
+        self.steps_per_epoch = steps_per_epoch
 
         self.params_trainable = list(
             filter(lambda p: p.requires_grad, self.parameters())
@@ -166,13 +168,19 @@ class netD(nn.Module):
         """
         self.optim = torch.optim.Adam(
             self.params_trainable,
-            lr=self.config.lr_ref,
+            lr=self.config.lr,
             betas=self.config.betas,
             eps=1e-6,
         )
-        self.scheduler = torch.optim.lr_scheduler.StepLR(
-            optimizer=self.optim, step_size=1, gamma=self.config.gamma
-        )
+        
+        if self.steps_per_epoch is not None:
+            self.scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer=self.optim, max_lr=self.config.max_lr, steps_per_epoch=self.steps_per_epoch, epochs=self.config.n_epochs
+            )
+        else: 
+            self.scheduler = torch.optim.lr_scheduler.StepLR(
+                optimizer=self.optim, step_size=1, gamma=self.config.gamma
+            )
 
     def save(self, name):
         torch.save({"opt": self.optim.state_dict(), "net": self.model.state_dict()}, name)
