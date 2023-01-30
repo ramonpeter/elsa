@@ -1,13 +1,13 @@
 from setuptools import setup, find_packages
 
-HTTPS_GITHUB_URL = "https://github.com/ramonpeter/ELSA"
+HTTPS_GITHUB_URL = "https://github.com/ramonpeter/elsa"
 
 with open("README.rst", "r") as fh:
     long_description = fh.read()
 
 setup(
-    name="ELSA",
-    version="0.1",
+    name="elsa",
+    version="1.0.1",
     author="Ramon Winterhalder",
     author_email="ramon.winterhalder@uclouvain.be",
     description="Enhanced Latent Spaces",
