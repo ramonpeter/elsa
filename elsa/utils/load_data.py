@@ -40,7 +40,8 @@ def Loader(datapath: str, dataset: str, batch_size: int, test: bool, scale: floa
 		e_had = 14000
 		nparticles = data.shape[1] // 4
 		masses = [80.419] + [0.] * (nparticles - 1)
-		scaler = RamboScaler(e_had, nparticles, masses)
+		scaler = SherpaScaler(e_had, nparticles, masses)
+		#scaler = RamboScaler(e_had, nparticles, masses)
 	else:
 		if scale is not None:
 			scales = scale
@@ -49,7 +50,7 @@ def Loader(datapath: str, dataset: str, batch_size: int, test: bool, scale: floa
 		scaler = SimpleScaler(scales)
   
 	# preprocess events
-	events = scaler.transform(data)
+	events = scaler.fit_and_transform(data)
 
 	# split into train and validate
 	events_train = events[:split]

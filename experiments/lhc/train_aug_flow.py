@@ -66,8 +66,8 @@ print("\n" + "===" * 30 + "\n")
 ## Define Model ##
 ##################
 
-# RQSFlow, CubicSplineFlow 
-flow = RQSFlow(
+# RQSFlow, CubicSplineFlow, INN
+flow = INN(
     in_dim=data_shape,
     aug_dim=c.aug_dim,
     n_blocks=c.n_blocks,
@@ -211,14 +211,14 @@ distributions = Distribution(
 )
 distributions.plot()
 
-# Make plots
-distributions2 = Distribution(
-    unit_real,
-    unit_fake,
-    "AugFlowUnit",
-    "AugFlowUnit",
-    log_dir + "/" + c.dataset + "/augflow/n_epochs_" + str(c.n_epochs),
-    c.dataset,
-    latent = True,
-)
-distributions2.plot()
+# # Make plots
+# distributions2 = Distribution(
+#     unit_real,
+#     unit_fake,
+#     "AugFlowUnit",
+#     "AugFlowUnit",
+#     log_dir + "/" + c.dataset + "/augflow/n_epochs_" + str(c.n_epochs),
+#     c.dataset,
+#     latent = True,
+# )
+# distributions2.plot()

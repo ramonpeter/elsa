@@ -17,7 +17,7 @@ sample_size = 1000000
 # Training #
 ############
 
-lr = 1e-4
+lr = 1e-3
 lr_ref = 1e-3
 max_lr = 5e-3
 
@@ -43,8 +43,8 @@ mmd = False
 ################
 
 n_blocks = 14
-n_units  = 128
-n_layers = 3
+n_units  = 64
+n_layers = 2
 aug_dim  = 0 
 
 n_units_disc  = 64 #make bigger and better?

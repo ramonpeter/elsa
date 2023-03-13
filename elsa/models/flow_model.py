@@ -27,7 +27,7 @@ class INN(nn.Module):
         n_blocks=1,
         n_units=16,
         n_layers=1,
-        unit_hypercube = True,
+        unit_hypercube = False,
         steps_per_epoch = None,
         device=torch.device("cpu"),
         config=None,
@@ -96,9 +96,18 @@ class INN(nn.Module):
             weight_decay=self.config.weight_decay,
         )
         
-        if self.steps_per_epoch is not None:
+        lr_decay = 0.1
+        lr_scheduler = "onecycle"
+        
+        if lr_scheduler == "onecycle":
             self.scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer=self.optim, max_lr=self.config.max_lr, steps_per_epoch=self.steps_per_epoch, epochs=self.config.n_epochs
+            )
+        elif lr_scheduler == "exponential":
+            weight_updates = self.steps_per_epoch * self.config.n_epochs
+            decay_rate = lr_decay ** (1 / max(weight_updates, 1))
+            self.scheduler = torch.optim.lr_scheduler.ExponentialLR(
+                self.optim, gamma=decay_rate
             )
         else: 
             self.scheduler = torch.optim.lr_scheduler.StepLR(
@@ -200,9 +209,18 @@ class RQSFlow(nn.Module):
             weight_decay=self.config.weight_decay,
         )
 
-        if self.steps_per_epoch is not None:
+        lr_decay = 0.1
+        lr_scheduler = "exponential"
+        
+        if lr_scheduler == "onecycle":
             self.scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer=self.optim, max_lr=self.config.max_lr, steps_per_epoch=self.steps_per_epoch, epochs=self.config.n_epochs
+            )
+        elif lr_scheduler == "exponential":
+            weight_updates = self.steps_per_epoch * self.config.n_epochs
+            decay_rate = lr_decay ** (1 / max(weight_updates, 1))
+            self.scheduler = torch.optim.lr_scheduler.ExponentialLR(
+                self.optim, gamma=decay_rate
             )
         else: 
             self.scheduler = torch.optim.lr_scheduler.StepLR(
@@ -305,9 +323,18 @@ class CubicSplineFlow(nn.Module):
             weight_decay=self.config.weight_decay,
         )
 
-        if self.steps_per_epoch is not None:
+        lr_decay = 0.1
+        lr_scheduler = "exponential"
+        
+        if lr_scheduler == "onecycle":
             self.scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer=self.optim, max_lr=self.config.max_lr, steps_per_epoch=self.steps_per_epoch, epochs=self.config.n_epochs
+            )
+        elif lr_scheduler == "exponential":
+            weight_updates = self.steps_per_epoch * self.config.n_epochs
+            decay_rate = lr_decay ** (1 / max(weight_updates, 1))
+            self.scheduler = torch.optim.lr_scheduler.ExponentialLR(
+                self.optim, gamma=decay_rate
             )
         else: 
             self.scheduler = torch.optim.lr_scheduler.StepLR(
