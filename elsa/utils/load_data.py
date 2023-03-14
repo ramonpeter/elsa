@@ -4,7 +4,7 @@ import os
 import torch
 import numpy as np
 import pandas as pd
-from ..modules.preprocess import RamboScaler, SimpleScaler, SherpaScaler, ThreeMomScaler, MinimalRepScaler
+from ..modules.preprocess import RamboScaler, SimpleScaler, SchumannScaler, ThreeMomScaler, MinimalRepScaler, HeimelScaler
 
 
 def read_files(DATAPATH, dataset, verbose=True):
@@ -40,8 +40,9 @@ def Loader(datapath: str, dataset: str, batch_size: int, test: bool, scale: floa
 		e_had = 14000
 		nparticles = data.shape[1] // 4
 		masses = [80.419] + [0.] * (nparticles - 1)
-		scaler = SherpaScaler(e_had, nparticles, masses)
-		#scaler = RamboScaler(e_had, nparticles, masses)
+		cuts = [0.] + [20.0] * (nparticles - 1)
+		#scaler = HeimelScaler(e_had, nparticles, masses, ptcuts=cuts)
+		scaler = RamboScaler(e_had, nparticles, masses)
 	else:
 		if scale is not None:
 			scales = scale
@@ -74,4 +75,4 @@ def Loader(datapath: str, dataset: str, batch_size: int, test: bool, scale: floa
 			drop_last = True,
 			)
 
-	return train_loader, validate_loader, split, shape, scaler
+	return train_loader, validate_loader, split, shape, scaler, scaler.is_hypercube

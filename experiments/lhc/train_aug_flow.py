@@ -53,7 +53,7 @@ print(f"device: {device}")
 ###############
 
 # TODO: Fix new scaler
-train_loader, validate_loader, dataset_size, data_shape, scaler = Loader(
+train_loader, validate_loader, dataset_size, data_shape, scaler, is_hypercube = Loader(
     c.datapath, c.dataset, c.batch_size, c.test, c.scale, c.weighted, device
 )
 STEPS_PER_EPOCH = len(train_loader)
@@ -73,6 +73,7 @@ flow = INN(
     n_blocks=c.n_blocks,
     n_units=c.n_units,
     n_layers=c.n_layers,
+    unit_hypercube=is_hypercube,
     device=device,
     config=c,
     steps_per_epoch=STEPS_PER_EPOCH,

@@ -78,7 +78,7 @@ class Distribution(Observable):
 					fig.savefig(pp, bbox_inches='tight', format='pdf', pad_inches=0.05)
 					plt.close()
 
-		if True:
+		if False:
 			with PdfPages(self.log_dir + '/' + self.dataset + '_' + self.name + '_2d.pdf') as pp:
 				for i, observable in enumerate(list(self.args2.keys())):
 					for observable2 in list(self.args2.keys())[i+1:]:

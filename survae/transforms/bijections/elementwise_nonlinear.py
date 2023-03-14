@@ -106,6 +106,25 @@ class Logit(Sigmoid):
         z = self.temperature * z
         x = torch.sigmoid(z)
         return x
+    
+class LogitTrain(Sigmoid):
+    def __init__(self, num_features, temperature=1, eps=1e-6):
+        super(LogitTrain, self).__init__()
+        self.eps = eps
+        self.temperature = nn.Parameter(temperature * torch.ones(num_features))
+
+    def forward(self, x):
+        assert torch.min(x) >= 0 and torch.max(x) <= 1, 'x must be in [0,1]'
+        x = torch.clamp(x, self.eps, 1 - self.eps)
+
+        z = (1 / self.temperature) * (torch.log(x) - torch.log1p(-x))
+        ldj = - sum_except_batch(torch.log(self.temperature) - F.softplus(-self.temperature * z) - F.softplus(self.temperature * z))
+        return z, ldj
+
+    def inverse(self, z):
+        z = self.temperature * z
+        x = torch.sigmoid(z)
+        return x
 
 
 class Softplus(Bijection):

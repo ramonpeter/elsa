@@ -8,64 +8,78 @@ from abc import ABC, abstractmethod
 import sys
 
 
-class Scaler(ABC):
+class Scaler():
     
-    @abstractmethod
-    def transform(self):
-        pass
+    def __init__(self, is_hypercube: bool):
+        self.is_hypercube = is_hypercube
+        self.is_fitted = False
+       
+    def _reparam(self, x_or_z: np.ndarray, inverse: bool=False):
+        """Needs to be implemented by child class"""
+        raise NotImplementedError()
+    
+    def fit(self, x: np.ndarray):
+        """Fit the scalings params"""
+        if not self.fitted:
+            x = self._reparam(x)
+            if self.is_hypercube:
+                self.mean = self.feature_min
+                self.scale = self.feature_max - self.feature_min
+            else:
+                self.mean = x.mean(axis=0, keepdims=True)
+                self.scale = x.std(axis=0, keepdims=True)
+                
+            self.fitted = True
+            
+    def fit_and_transform(self, x: np.ndarray):
+        """Fits and transforms"""
+        self.fit(x)
+        z = self.transform(x)
+        return z
         
-    @abstractmethod
-    def inverse_transform(self):
-        pass
+    def transform(self, x: np.ndarray):
+        """Forward transformation"""
+        if not self.fitted:
+            raise ValueError("Not fitted yet")
+        z = self._reparam(x)
+        z -= self.mean
+        z /= self.scale
+        return z
+        
+    def inverse_transform(self, z: np.ndarray):
+        """Inverse transformation"""
+        if not self.fitted:
+            raise ValueError("Not fitted yet")
+        z *= self.scale
+        z += self.mean
+        x = self._reparam(z, inverse=True)
+        return x
 
 
 class SimpleScaler(Scaler):
-    """Basic preprocessing"""
-
+    """Basic preprocessing. Just scaling the input
+    with a given mean and scale given as input"""
+    
     def __init__(self, scale: np.ndarray, mean: np.ndarray=None):
         """
         Args:
             scale (np.ndarray): scaling variable
             mean (np.ndarray, optional): mean variable. Defaults to None.
         """
-        self.scale = scale
+        super().__init__(False)
         self.mean = mean
+        self.scale = scale       
         self.fitted = True
         
-    def fit_and_transform(self, x):
-        return self.transform(x)
-
-    def transform(self, x):
-        """
-        Perform standardization by {centering} and scaling.
+        self.feature_min = None
+        self.feature_max = None
         
-        Args:
-            x: Tensor of shape (n_samples, n_features).
-
-        Returns:
-            x_tr: Transformed tensor of shape (n_samples, n_features)
-        """
-        if self.mean:
-            x -= self.mean
-        x /= self.scale
-        return x
-
-    def inverse_transform(self, x):
-        """
-        Scale back the data to the original representation.
-
-        Args:
-            x: Tensor of shape (n_samples, n_features).
-
-        Returns:
-            x_tr: Transformed tensor of shape (n_samples, n_features)
-        """
-        x *= self.scale
-        if self.mean:
-            x += self.mean
-        return x
+    def _reparam(self, x_or_z: np.ndarray, inverse: bool=False):
+        """No reparametrization"""
+        return x_or_z
+        
     
-class SherpaScaler(Scaler):
+class SchumannScaler(Scaler):
     """Propreccing of LHC data
     Uses the preprocessing suggested in arxiv:2109.11964.
     
@@ -77,39 +91,72 @@ class SherpaScaler(Scaler):
     output is mapped onto [0, 1]. The Ref. used [-1,1] but
     this should not change anything.
     """
-    def __init__(self, e_had: float, n_particles: int, masses: list = None, **kwargs):
+    def __init__(self, e_had: float, n_particles: int, masses: list = None, is_hypercube: bool=False, **kwargs):
         """
         Args:
             e_had (float): hadronic center of mass energy.
             nparticles (int): number of final state particles.
             masses (list, optional): list of final state masses. Defaults to None.
         """
+        super().__init__(is_hypercube)
         self.e_had = e_had
-        self.masses = torch.Tensor(masses)[None,...]
+        self.masses = np.array(masses)[None,...]
         self.n_particles = n_particles
+        
         self.fitted = False
-        self.hypercube = True
-        
-    def fit_and_transform(self, x):
-        self.fit(x)
-        return self.transform(x)
+        self.feature_min = -e_had/2
+        self.feature_max = e_had/2
     
-    def fit(self, x):
-        x = self._reparam(x)
-        self.mean = -self.e_had/2
-        self.scale = self.e_had
-        self.fitted = True
-    
-    def _reparam(self, x):
+    def _reparam(self, x_or_z: np.ndarray, inverse=False):
+        """
+        Makes reparametrization into
+            x = {pf1,..,pfn, pi1, pi2}
+        with
+            pf = {px, py, pz} and pi = {pz}
         
+        And transforms the shapes according to:
+            (batch_size, 4 * n_particles) 
+                <--inverse | forward--> 
+            (batch_size, 3 * n_particles + 2)
+       
+        """
         out = []
         aug = []
-        x = torch.tensor(x)
+        
+        if inverse:
+            #--- Inverse direction ----#
+            x = x_or_z[:, :3*self.n_particles]
+            
+            # x.shape:     (b, 3 * n_particles)
+            # reshape   -> (b, n_particles, 3)
+            # transpose -> (b, 3, n_particles)
+            x = np.reshape(x, (x.shape[0], self.n_particles, 3)).transpose(0, 2, 1)
+            
+            # get Px, Py, Pz
+            Xs = x[:, 0, :]
+            Ys = x[:, 1, :]
+            Zs = x[:, 2, :]
+            Es = np.sqrt(self.masses**2 + Xs ** 2 + Ys ** 2 + Zs ** 2)
+            
+            out.append(Es)
+            out.append(Xs)
+            out.append(Ys)
+            out.append(Zs)
+            x_out = np.stack(out, axis=1)
+            
+            # x_out.shape: (b, 4, n_particles)
+            # transpose -> (b, n_particles, n_out)
+            # reshape   -> (b, 4 * n_particles)
+            shape_dim = 4 * self.n_particles
+            x_out = np.transpose(x_out, (0, 2, 1)).reshape(x_out.shape[0], shape_dim)
+            return x_out
+
+        #--- Forward direction ----#
         
         # x.shape:     (b, 4 * n_particles)
         # reshape   -> (b, n_particles, 4)
         # transpose -> (b, 4, n_particles)
-        x = torch.reshape(x, (x.shape[0], self.n_particles, 4)).transpose(1, 2)
+        x = np.reshape(x_or_z, (x_or_z.shape[0], self.n_particles, 4)).transpose(0, 2, 1)
 
         # get E, Px, Py, Pz
         Es = x[:, 0, :]
@@ -119,254 +166,298 @@ class SherpaScaler(Scaler):
         out.append(Xs)
         out.append(Ys)
         out.append(Zs)
-        y = torch.stack(out, dim=1)
+        y = np.stack(out, axis=1)
         
         # y.shape:     (b, 3, n_particles)
         # transpose -> (b, n_particles, 3)
         # reshape   -> (b, 3 * n_particles)
         shape_dim = 3 * self.n_particles
-        y = torch.transpose(y, 1, 2).reshape(y.shape[0], shape_dim)
+        y = np.transpose(y, (0, 2, 1)).reshape(y.shape[0], shape_dim)
         
         # shape  -> (b, 1)
-        Et  = torch.sum(Es, dim=1, keepdim=True)
-        Pzt = torch.sum(Zs, dim=1, keepdim=True)
+        Et  = np.sum(Es, axis=1, keepdims=True)
+        Pzt = np.sum(Zs, axis=1, keepdims=True)
         Pz1 = (Pzt + Et)/2
         Pz2 = (Pzt - Et)/2
         aug.append(Pz1)
         aug.append(Pz2)
-        x_aug = torch.cat(aug, dim=-1)
+        x_aug = np.concatenate(aug, axis=-1)
         
         # Concat all entries
-        x_out = torch.cat([y, x_aug], dim=-1)
+        x_out = np.concatenate([y, x_aug], axis=-1)
         
         return x_out
-        
 
-    def transform(self, x):
-        """
-        Maps momentum features into [0,1]
-
-        Args:
-            x: Tensor with shape (batch_size, 4 * n_particles).
-
-        Returns:
-            z: Tensor with shape (batch_size, 3 * n_particles + 2).
-        """
-        x_out = self._reparam(x)
-        x_out -= self.mean
-        x_out /= self.scale
-
-        return x_out.numpy()
-
-    def inverse_transform(self, z):
-        """
-        Maps back to the original momentum representation.
-
-        Args:
-            z: Tensor with shape (batch_size, 3 * n_particles + 2).
-
-        Returns:
-            x: Tensor with shape (batch_size, 4 * n_particles).
-        """
-        out = []
-        z = torch.tensor(z)
-        
-        z *= self.scale
-        z += self.mean
-        x, _ = torch.split(z, [3*self.n_particles, 2], dim=-1)
-        
-        # x.shape:     (b, 3 * n_particles)
-        # reshape   -> (b, n_particles, 3)
-        # transpose -> (b, 3, n_particles)
-        x = torch.reshape(x, (x.shape[0], self.n_particles, 3)).transpose(1, 2)
-        
-        # get Px, Py, Pz
-        Xs = x[:, 0, :]
-        Ys = x[:, 1, :]
-        Zs = x[:, 2, :]
-        Es = torch.sqrt(self.masses**2 + Xs ** 2 + Ys ** 2 + Zs ** 2)
-        
-        out.append(Es)
-        out.append(Xs)
-        out.append(Ys)
-        out.append(Zs)
-        x_out = torch.stack(out, dim=1)
-        
-        # x_out.shape: (b, 4, n_particles)
-        # transpose -> (b, n_particles, n_out)
-        # reshape   -> (b, 4 * n_particles)
-        shape_dim = 4 * self.n_particles
-        x_out = torch.transpose(x_out, 1, 2).reshape(x_out.shape[0], shape_dim)
-        return x_out.numpy()
     
 class ThreeMomScaler(Scaler):
-    """Propreccing of LHC data"""
+    """Propreccing of LHC data
+    Only takes 3 momenta of final states, resulting in
 
-    def __init__(self, e_had: float, n_particles: int, masses: list = None, **kwargs):
+    d = 3n,
+    
+    dimensions and features. Final output is mapped onto [0,1] 
+    , or centered and scaled (is_hypercube=False).
+    """
+
+    def __init__(self, e_had: float, n_particles: int, masses: list = None, is_hypercube: bool=False, **kwargs):
         """
         Args:
             e_had (float): hadronic center of mass energy.
             nparticles (int): number of final state particles.
             masses (list, optional): list of final state masses. Defaults to None.
         """
+        super().__init__(is_hypercube)
         self.e_had = e_had
-        self.masses = torch.Tensor(masses)[None,...]
+        self.masses = np.array(masses)[None,...]
         self.n_particles = n_particles
-
-    def transform(self, x):
+        
+        self.fitted = False
+        self.feature_min = -e_had/2
+        self.feature_max = e_had/2
+    
+    def _reparam(self, x_or_z: np.ndarray, inverse: bool=False):
         """
-        Maps momentum features between [-1, 1]
+        Makes reparametrization into
+            x = {pf1,..,pfn}
+        with
+            pf = {px, py, pz}
+        
+        And transforms the shapes according to:
+            (batch_size, 4 * n_particles) 
+                <--inverse | forward--> 
+            (batch_size, 3 * n_particles)
 
-        Args:
-            x: Tensor with shape (batch_size, 4 * n_particles).
-
-        Returns:
-            z: Tensor with shape (batch_size, 3 * n_particles).
         """
+        if inverse:
+            #--- Inverse direction ----#
+            out = []
+            # x.shape:     (b, 3 * n_particles )
+            # reshape   -> (b, n_particles , 3)
+            # transpose -> (b, 3, n_particles)
+            x = np.reshape(x_or_z, (x_or_z.shape[0], self.n_particles , 3)).transpose(0, 2, 1)
+            
+            # get Px, Py, Pz
+            Xs = x[:, 0, :]
+            Ys = x[:, 1, :]
+            Zs = x[:, 2, :]
+            Es = np.sqrt(self.masses**2 + Xs ** 2 + Ys ** 2 + Zs ** 2)
+            
+            out.append(Es)
+            out.append(Xs)
+            out.append(Ys)
+            out.append(Zs)
+            x_out = np.stack(out, axis=1)
+            
+            # x_out.shape: (b, 4, n_particles)
+            # transpose -> (b, n_particles, n_out)
+            # reshape   -> (b, 4 * n_particles)
+            shape_dim = 4 * self.n_particles
+            x_out = np.transpose(x_out, (0, 2, 1)).reshape(x_out.shape[0], shape_dim)
+            return x_out
+        
+        #--- Forward direction ----#
         mask = [False, True, True, True] * self.n_particles
-        z = x[:,mask]
-        z += self.e_had/2
-        z /= self.e_had
-
+        z = x_or_z[:,mask]
         return z
 
-    def inverse_transform(self, z):
-        """
-        Maps back to the original momentum representation.
-
-        Args:
-            z: Tensor with shape (batch_size, 3 * n_particles).
-
-        Returns:
-            x: Tensor with shape (batch_size, 4 * n_particles).
-        """
-        out = []
-        z *= self.e_had
-        z -= self.e_had/2
-        
-        # x.shape:     (b, 3 * n_particles )
-        # reshape   -> (b, n_particles , 3)
-        # transpose -> (b, 3, n_particles)
-        x = torch.reshape(x, (x.shape()[0], self.n_particles , 3)).transpose(1, 2)
-        
-        # get Px, Py, Pz
-        Xs = x[:, 0, :]
-        Ys = x[:, 1, :]
-        Zs = x[:, 2, :]
-        Es = torch.sqrt(self.masses**2 + Xs ** 2 + Ys ** 2 + Zs ** 2)
-        
-        out.append(Es)
-        out.append(Xs)
-        out.append(Ys)
-        out.append(Zs)
-        x_out = torch.stack(out, dim=1)
-        
-        # x_out.shape: (b, 4, n_particles)
-        # transpose -> (b, n_particles, n_out)
-        # reshape   -> (b, 4 * n_particles)
-        shape_dim = 4 * self.n_particles
-        x_out = torch.transpose(x_out, 1, 2).reshape(x_out.shape[0], shape_dim)
-        
-        return x
     
 class MinimalRepScaler(Scaler):
-    """Propreccing of LHC data"""
+    """Propreccing of LHC data
+    Only takes a minimal rep, using only
 
-    def __init__(self, e_had: float, n_particles: int, masses: list = None, **kwargs):
+    d = 3n - 2,
+    
+    dimensions and features. Final output is mapped onto [0,1] 
+    , or centered and scaled (is_hypercube=False).
+    """
+
+    def __init__(self, e_had: float, n_particles: int, masses: list = None, is_hypercube: bool=True, **kwargs):
         """
         Args:
             e_had (float): hadronic center of mass energy.
             nparticles (int): number of final state particles.
             masses (list, optional): list of final state masses. Defaults to None.
         """
+        super().__init__(is_hypercube)
         self.e_had = e_had
-        self.masses = torch.Tensor(masses)[None,...]
+        self.masses = np.array(masses)[None,...]
         self.n_particles = n_particles
+       
         self.fitted = False
+        self.feature_min = -e_had/2
+        self.feature_max = e_had/2
+    
+    def _reparam(self, x_or_z: np.ndarray, inverse: bool=False):
+        """
+        Makes reparametrization into
+            x = {pf1,..,pfn}
+        with
+            pf = {px, py, pz} and only pfn={pz}
         
-    def fit_and_transform(self, x):
-        self.fit(x)
-        return self.transform(x)
+        And transforms the shapes according to:
+            (batch_size, 4 * n_particles) 
+                <--inverse | forward--> 
+            (batch_size, 3 * n_particles - 2)
+
+        """
+        if inverse:
+            #--- Inverse direction ----#
+            out = []
+            x, Zlast = x_or_z[:,:3*(self.n_particles-1)], x_or_z[:,-1:]
+            
+            # x.shape:     (b, 3 * (n_particles - 1))
+            # reshape   -> (b, n_particles - 1, 3)
+            # transpose -> (b, 3, n_particles - 1)
+            x = np.reshape(x, (x.shape[0], self.n_particles - 1, 3)).transpose(0, 2, 1)
+            Xlast = -np.sum(x[:, 0, :], axis=-1, keepdims=True)
+            Ylast = -np.sum(x[:, 1, :], axis=-1, keepdims=True)
+            
+            # get Px, Py, Pz
+            Xs = np.concatenate([x[:, 0, :], Xlast], axis=-1)
+            Ys = np.concatenate([x[:, 1, :], Ylast], axis=-1)
+            Zs = np.concatenate([x[:, 2, :], Zlast], axis=-1)
+            Es = np.sqrt(self.masses**2 + Xs ** 2 + Ys ** 2 + Zs ** 2)
+            
+            out.append(Es)
+            out.append(Xs)
+            out.append(Ys)
+            out.append(Zs)
+            x_out = np.stack(out, axis=1)
+            
+            # x_out.shape: (b, 4, n_particles)
+            # transpose -> (b, n_particles, n_out)
+            # reshape   -> (b, 4 * n_particles)
+            shape_dim = 4 * self.n_particles
+            x_out = np.transpose(x_out, (0, 2, 1)).reshape(x_out.shape[0], shape_dim)
+            
+            return x_out
         
-    def fit(self, x):
-        x = torch.tensor(x)
-        
+        #--- Forward direction ----#
         mask = [False, True, True, True] * (self.n_particles - 1) + [False, False, False, True]
-        z = x[:,mask]
+        z = x_or_z[:,mask]
+        return z
+    
+class HeimelScaler(Scaler):
+    """Propreccing of LHC data
+    Uses the preprocessing suggested in arxiv:2110.13632.
+    Takes transformed 3-mom representation of final state particles yielding
+    
+    d = 3n,
+    
+    dimensions and features. Final output is mapped onto [0,1] 
+    , or centered and scaled (is_hypercube=False = Default).
+    """
 
-        self.mean = z.mean(axis=0, keepdim=True)
-        self.std = z.std(axis=0, keepdim=True)
-        self.fitted = True
-
-    def transform(self, x):
+    def __init__(self, e_had: float, n_particles: int, masses: list, ptcuts: list, is_hypercube: bool=False, **kwargs):
         """
-        Maps momentum features between [0, 1]
-
         Args:
-            x: Tensor with shape (batch_size, 4 * n_particles).
-
-        Returns:
-            z: Tensor with shape (batch_size, 3 * n_particles - 2).
+            e_had (float): hadronic center of mass energy.
+            nparticles (int): number of final state particles.
+            masses (list, optional): list of final state masses. Defaults to None.
         """
-        if not self.fitted:
-            raise ValueError("Not fitted yet")
-        
-        x = torch.tensor(x)
-        
-        mask = [False, True, True, True] * (self.n_particles - 1) + [False, False, False, True]
-        z = x[:,mask]
-        
-        z -= self.mean
-        z /= self.std
-
-        return z.numpy()
-
-    def inverse_transform(self, z):
+        super().__init__(is_hypercube)
+        self.e_had = e_had
+        self.masses = np.array(masses)[None,...]
+        self.ptcuts = np.array(ptcuts)[None,...]
+        assert self.masses.shape[1] == self.ptcuts.shape[1]
+        self.n_particles = n_particles
+       
+        self.fitted = False
+        self.feature_min = -e_had/2
+        self.feature_max = e_had/2
+    
+    def _reparam(self, x_or_z: np.ndarray, inverse: bool=False):
         """
-        Maps back to the original momentum representation.
-
-        Args:
-            z: Tensor with shape (batch_size, 3 * n_particles - 2).
-
-        Returns:
-            x: Tensor with shape (batch_size, 4 * n_particles).
-        """
-        if not self.fitted:
-            raise ValueError("Not fitted yet")
+        Makes reparametrization into
+            x = {pf1,..,pfn}
+        with
+            pf = {px, py, pz} and only pfn={pz}
         
+        And transforms the shapes according to:
+            (batch_size, 4 * n_particles) 
+                <--inverse | forward--> 
+            (batch_size, 3 * n_particles - 2)
+
+        """
+        if inverse:
+            #--- Inverse direction ----#
+            out = []
+            # x.shape:     (b, 3 * n_particles )
+            # reshape   -> (b, n_particles, 3)
+            # transpose -> (b, 3, n_particles)
+            x = np.reshape(x_or_z, (x_or_z.shape[0], self.n_particles, 3)).transpose(0, 2, 1)
+            
+            # get Pt, Eta, Phi transformed
+            Pt = x[:, 0, :]
+            Eta = x[:, 1, :]
+            Delta_phi = x[:, 2, :]
+            Phi = np.zeros_like(Delta_phi)
+            
+            # Get proper Pt and phi
+            Pt = np.exp(Pt) + self.ptcuts
+            Delta_phi = np.tanh(Delta_phi) * np.pi
+            Phi = (Delta_phi - np.pi + Delta_phi[:,:1]) % (-2*np.pi) + np.pi
+            Phi[:,0] = Delta_phi[:,0]
+            
+            # get Px, Py, Pz
+            Xs = Pt * np.cos(Phi)
+            Ys = Pt * np.sin(Phi)
+            Zs = Pt * np.sinh(Eta)
+            Es = np.sqrt(self.masses**2 + Xs ** 2 + Ys ** 2 + Zs ** 2)
+            
+            out.append(Es)
+            out.append(Xs)
+            out.append(Ys)
+            out.append(Zs)
+            x_out = np.stack(out, axis=1)
+            
+            # x_out.shape: (b, 4, n_particles)
+            # transpose -> (b, n_particles, n_out)
+            # reshape   -> (b, 4 * n_particles)
+            shape_dim = 4 * self.n_particles
+            x_out = np.transpose(x_out, (0, 2, 1)).reshape(x_out.shape[0], shape_dim)
+            return x_out
+        
+        #--- Forward direction ----#
         out = []
-        z = torch.tensor(z)
+        # x.shape:     (b, 4 * n_particles)
+        # reshape   -> (b, n_particles, 4)
+        # transpose -> (b, 4, n_particles)
+        x = np.reshape(x_or_z, (x_or_z.shape[0], self.n_particles, 4)).transpose(0, 2, 1)
         
-        z *= self.std
-        z += self.mean
-        x, Zlast = torch.split(z, [3*(self.n_particles-1), 1], dim=-1)
+        # get E, Px, Py, Pz
+        Es = x[:, 0, :]
+        Xs = x[:, 1, :]
+        Ys = x[:, 2, :]
+        Zs = x[:, 3, :]
         
-        # x.shape:     (b, 3 * (n_particles - 1))
-        # reshape   -> (b, n_particles - 1, 3)
-        # transpose -> (b, 3, n_particles - 1)
-        x = torch.reshape(x, (x.shape[0], self.n_particles - 1, 3)).transpose(1, 2)
-        Xlast = -torch.sum(x[:, 0, :], dim=-1, keepdim=True)
-        Ylast = -torch.sum(x[:, 1, :], dim=-1, keepdim=True)
+        # get pt, eta, phi
+        Pp = np.sqrt(Xs **2 + Ys**2 + Zs**2)
+        Pt = np.sqrt(Xs **2 + Ys**2)
+        Eta = np.arctanh(Zs/Pp)
+        Phi = np.arctan2(Xs,Ys)
         
-        # get Px, Py, Pz
-        Xs = torch.cat([x[:, 0, :], Xlast], dim=-1)
-        Ys = torch.cat([x[:, 1, :], Ylast], dim=-1)
-        Zs = torch.cat([x[:, 2, :], Zlast], dim=-1)
-        Es = torch.sqrt(self.masses**2 + Xs ** 2 + Ys ** 2 + Zs ** 2)
+        # Get transformed pt
+        Pt = np.log(Pt - self.ptcuts)
         
-        out.append(Es)
-        out.append(Xs)
-        out.append(Ys)
-        out.append(Zs)
-        x_out = torch.stack(out, dim=1)
+        # Get transformed delta phis
+        Delta_phi = (Phi - Phi[:,:1] + np.pi) % (2*np.pi) - np.pi
+        Delta_phi[:,0] = Phi[:,0]
+        Delta_phi = np.arctanh(Delta_phi/np.pi)
         
-        # x_out.shape: (b, 4, n_particles)
-        # transpose -> (b, n_particles, n_out)
-        # reshape   -> (b, 4 * n_particles)
-        shape_dim = 4 * self.n_particles
-        x_out = torch.transpose(x_out, 1, 2).reshape(x_out.shape[0], shape_dim)
+        # Add output
+        out.append(Pt)
+        out.append(Eta)
+        out.append(Delta_phi)
+        x_out = np.stack(out, axis=1)
         
-        return x_out.numpy()
+        # x_out.shape: (b, 3, n_particles)
+        # transpose -> (b, n_particles, 3)
+        # reshape   -> (b, 3 * n_particles)
+        shape_dim = 3 * self.n_particles
+        x_out = np.transpose(x_out, (0, 2, 1)).reshape(x_out.shape[0], shape_dim)
+        
+        return x_out
     
 class RamboScaler(Scaler):
     """Propreccing of LHC data"""
@@ -378,34 +469,32 @@ class RamboScaler(Scaler):
             nparticles (int): number of final state particles.
             masses (list, optional): list of final state masses. Defaults to None.
         """
+        super().__init__(is_hypercube=True)
         self.ps_mapping = RamboOnDietHadron(e_had, n_particles, masses)
-        self.fitted = True
-        
-    def fit_and_transform(self, x):
-        return self.transform(x)
 
-    def transform(self, x):
+        self.fitted = True
+        self.feature_min = 0
+        self.feature_max = 1
+        self.mean = 0
+        self.scale = 1
+        
+    def _reparam(self, x_or_z: np.ndarray, inverse=False):
         """
         Performs mapping onto unit-hypercube.
+        According to rambo algorithm
+        
+        And transforms the shapes according to:
+            (batch_size, 4 * n_particles) 
+                <--inverse | forward--> 
+            (batch_size, 3 * n_particles + 2)
+       
+        """      
+        if inverse:
+            #--- Inverse direction ----#
+            z = self.ps_mapping.map(x_or_z)
+            return z
 
-        Args:
-            x: Tensor with shape (batch_size, 4 * n_particles).
-
-        Returns:
-            z: Tensor with shape (batch_size, 3 * n_particles - 2).
-        """
-        z = self.ps_mapping.map_inverse(x)
-        return z
-
-    def inverse_transform(self, z):
-        """
-        Maps back to the original momentum representation.
-
-        Args:
-            z: Tensor with shape (batch_size, 3 * n_particles - 2).
-
-        Returns:
-            x: Tensor with shape (batch_size, 4 * n_particles).
-        """
-        x = self.ps_mapping.map(z)
+        #--- Forward direction ----#
+        x = self.ps_mapping.map_inverse(x_or_z)
+        
         return x

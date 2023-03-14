@@ -13,6 +13,7 @@ from survae.transforms import (
     CubicSplineCouplingBijection,
     Sigmoid,
     Logit,
+    LogitTrain
 )
 from survae.nn.nets import MLP
 from survae.nn.layers import ElementwiseParams, scale_fn
