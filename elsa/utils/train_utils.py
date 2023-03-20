@@ -30,9 +30,6 @@ def print_log(epoch, epochs, iteration, iters, learning_rate, display, loss):
     print(f"epoch: [{epoch}/{epochs}], iteration: [{iteration}/{iters}],  Learning rate: {learning_rate}")
     print("Loss = {loss.val:.8f} (ave = {loss.avg:.8f})".format(display, loss=loss))
 
-def save_checkpoint(state, filename="checkpoint"):
-    torch.save(state, filename + ".pth.tar")
-
 
 ############
 

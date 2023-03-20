@@ -21,6 +21,7 @@ class _Augment(nn.Module):
         Phi: bool = 0,
         logE: bool = 0,
         logPT: bool = 0,
+        realPhi: bool = 0,
         logPTcut: List[bool, Iterable[float]] = [0, None],
         logEtacut: List[bool, Iterable[float]] = [0, None],
         DeltaR: Iterable[Tuple[int]] = None,
@@ -48,6 +49,7 @@ class _Augment(nn.Module):
         self.logPT = logPT
         self.logPTcut = logPTcut
         self.logEtacut = logEtacut
+        self.realPhi = realPhi
 
         self.DeltaR = DeltaR
         self.Mij = Mij
@@ -64,6 +66,7 @@ class _Augment(nn.Module):
             + int(self.Phi)
             + int(self.logE)
             + int(self.logPT)
+            + int(self.realPhi)
             + int(self.logPTcut[0])
             + int(self.logEtacut[0])
         )
@@ -80,7 +83,7 @@ class _Augment(nn.Module):
         # x.shape:     (b, 4 * n_particles)
         # reshape   -> (b, n_particles, 4)
         # transpose -> (b, 4, n_particles)
-        x = torch.reshape(x, (x.shape()[0], self.n_particles, 4)).transpose(1, 2)
+        x = torch.reshape(x, (x.shape[0], self.n_particles, 4)).transpose(1, 2)
 
         # get E, Px, Py, Pz
         Es = x[:, 0, :]
@@ -105,15 +108,16 @@ class _Augment(nn.Module):
             out.append(PTs)
 
         if self.Eta:
-            etas = 0.5 * (
-                torch.log(torch.clamp(Ps + Zs, min=self.epsilon))
-                - torch.log(torch.clamp(Ps - Zs, min=self.epsilon))
-            )
+            etas = torch.arctanh(Zs/Ps)
             out.append(etas)
 
         if self.Phi:
             phis = torch.atan2(Ys, Xs)
             out.append(phis)
+            
+        if self.realPhi:
+            realphi = torch.arctanh(torch.atan2(Ys, Xs)/torch.pi)
+            out.append(realphi)
 
         if self.logE:
             out.append(torch.log(Es))
@@ -122,28 +126,22 @@ class _Augment(nn.Module):
             PTs = torch.sqrt(torch.clamp(Xs ** 2 + Ys ** 2, min=self.epsilon))
             out.append(torch.log(PTs))
 
-        if self.logPTcut != None:
+        if self.logPTcut[1] != None:
             PTs = torch.sqrt(torch.clamp(Xs ** 2 + Ys ** 2, min=self.epsilon))
             cuts = torch.tensor(self.logPTcut[1]).double()
             logptcut = torch.log(PTs - cuts)
             out.append(logptcut)
 
-        if self.logEtacut != None:
-            etas = 0.5 * (
-                torch.log(torch.clamp(Ps + Zs, min=self.epsilon))
-                - torch.log(torch.clamp(Ps - Zs, min=self.epsilon))
-            )
-            cuts = torch.tensor(self.logetacut[1]).double()
-            logetacut = torch.log((cuts + etas) / (cuts - etas))
+        if self.logEtacut[1] != None:
+            etas = torch.arctanh(Zs/Ps)
+            cuts = torch.tensor(self.logEtacut[1]).double()[None,...]
+            logetacut = torch.arctanh(etas/cuts)
             out.append(logetacut)
 
         # additional augmented features
         if self.DeltaR:
 
-            Etas = 0.5 * (
-                torch.log(torch.clamp(Ps + Zs, min=self.epsilon))
-                - torch.log(torch.clamp(Ps - Zs, min=self.epsilon))
-            )
+            Etas = torch.arctanh(Zs/Ps)
             Phis = torch.atan2(Ys, Xs)
 
             for id1, id2 in self.DeltaR:
@@ -195,10 +193,7 @@ class _Augment(nn.Module):
 
         if self.DeltaEta:
 
-            Etas = 0.5 * (
-                torch.log(torch.clamp(Ps + Zs, min=self.epsilon))
-                - torch.log(torch.clamp(Ps - Zs, min=self.epsilon))
-            )
+            Etas = torch.arctanh(Zs/Ps)
 
             for id1, id2 in self.DeltaEta:
 

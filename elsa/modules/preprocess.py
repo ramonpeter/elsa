@@ -348,7 +348,15 @@ class HeimelScaler(Scaler):
     , or centered and scaled (is_hypercube=False = Default).
     """
 
-    def __init__(self, e_had: float, n_particles: int, masses: list, ptcuts: list, is_hypercube: bool=False, **kwargs):
+    def __init__(
+        self, 
+        e_had: float, 
+        n_particles: int, 
+        masses: list, 
+        ptcuts: list, 
+        is_hypercube: bool=False,
+        **kwargs
+    ):
         """
         Args:
             e_had (float): hadronic center of mass energy.
@@ -393,7 +401,7 @@ class HeimelScaler(Scaler):
             Delta_phi = x[:, 2, :]
             Phi = np.zeros_like(Delta_phi)
             
-            # Get proper Pt and phi
+            # Get proper Pt and phi and eta
             Pt = np.exp(Pt) + self.ptcuts
             Delta_phi = np.tanh(Delta_phi) * np.pi
             Phi = (Delta_phi - np.pi + Delta_phi[:,:1]) % (-2*np.pi) + np.pi
