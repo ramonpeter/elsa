@@ -34,7 +34,7 @@ class Rambo(PhaseSpaceMapping):
 
         q = map_fourvector_rambo(xs.reshape(xs.shape[0], nparticles, 4))
         # sum over all particles
-        Q = np.add.reduce(q, axis=1)
+        Q = np.sum(q, axis=1)
 
         M = np.sqrt(np.einsum('kd,dd,kd->k', Q, MINKOWSKI, Q))
         b = (-Q[:, 1:] / M[:, np.newaxis])
@@ -194,8 +194,8 @@ class RamboOnDietHadron(PhaseSpaceMapping):
         else:
             logtau = np.log(r[0])
         
-        logx1 = (1 - r[1]) * logtau
-        logx2 = r[1] * logtau 
+        logx1 = r[1] * logtau
+        logx2 = (1 - r[1]) * logtau 
         return np.exp(logx1), np.exp(logx2)
            
     def _get_pdf_random_numbers(self, x):
@@ -207,8 +207,8 @@ class RamboOnDietHadron(PhaseSpaceMapping):
     def _get_rapidity_and_fractions(self, q):
         tau = (np.einsum('ij,jk,ik->i', q[:,0,:], MINKOWSKI, q[:,0,:]) / self.e_had**2)[...,None]
         rapidity = np.arctanh(q[:,:,3]/q[:,:,0])
-        logx1 = 0.5 * np.log(tau) + 0.5 * np.log((q[:,:,0] - q[:,:,3])/(q[:,:,0] + q[:,:,3]))
-        logx2 = 0.5 * np.log(tau) - 0.5 * np.log((q[:,:,0] - q[:,:,3])/(q[:,:,0] + q[:,:,3]))
+        logx1 = 0.5 * np.log(tau) + rapidity
+        logx2 = 0.5 * np.log(tau) - rapidity
         return rapidity, np.exp(logx1), np.exp(logx2)
             
 

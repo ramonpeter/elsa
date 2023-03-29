@@ -32,6 +32,7 @@ p = ps_generator.map(x)
 y = ps_generator.map_inverse(p)
 print(f"x = {x}")
 print(f"y = {y}")
+#print(f"diff = {y-x}")
 
 
 # Plot testing
