@@ -3,64 +3,68 @@
 ##################
 
 datapath = '../../datasets/lhc/'
-dataset = 'wp_3j' # wp_2j, wp_3j, wp_4j
+dataset = 'wp_2j' # wp_2j, wp_3j
+e_had = 14000
+masses = [80.419] + [0.] * 2
+ptcuts = [0.] + [20.0] * 2
 
 ########
 # Data #
 ########
 
-weighted = False
 scale = None
-sample_size = 1000000
+sample_size = int(1e6)
+gen_scaler = "Heimel" # Simple, Schumann, Momenta, Minrep, Heimel, Ramobo
+disc_scaler = None
 
-############
-# Training #
-############
+#################
+# Flow Training #
+#################
 
-lr = 1e-3
-lr_ref = 1e-3
-max_lr = 5e-3
-
+n_epochs = 51
 batch_size = 2000
-gamma = 0.995
-weight_decay = 1e-5
-
 betas = (0.9, 0.999)
 
-do_rev = False
-do_fwd = True
+lr_scheduler = "onecycle" # or "exponential"
+lr = 5e-4
+max_lr = 3e-3
 
-n_epochs = 50
-n_its_per_epoch_gen = 1
-n_its_per_epoch_ref = 1
+gamma = 0.995
+exp_decay = 0.1
+weight_decay = 1e-5
 
-n_disc_updates = 5
+#######################
+# Classifier Training #
+#######################
 
-mmd = False
+disc_n_epochs = 100
+
+disc_lr_scheduler = "onecycle" # or "exponential"
+disc_lr = 5e-4
+disc_max_lr = 5e-3
+
+disc_gamma = 0.995
+disc_exp_decay = 0.1
+n_its_per_epoch = 1
 
 ################
 # Architecture #
 ################
 
+coupling = "affine"
 n_blocks = 14
-n_units  = 64
+n_units  = 80
 n_layers = 2
 aug_dim  = 0 
 
-n_units_disc  = 64 #make bigger and better?
-n_layers_disc = 8
-
-latent_dim_gen = 2 #for LSRGAN
+disc_n_units  = 128 #make bigger and better?
+disc_n_layers = 10
 
 ###################
 # Logging/preview #
 ###################
 
-loss_names = ['L', 'L_rev']
-progress_bar = True
-
-show_interval = 5
-save_interval = 50
+show_interval = 1
 
 ##################
 # Loading/saving #
@@ -70,7 +74,4 @@ test = False
 train = True
 
 save_model = True
-load_model = False
-
 save_dir = './results'
-checkpoint_on_error = False

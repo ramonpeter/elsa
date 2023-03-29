@@ -14,20 +14,20 @@ ptcuts = [0.] + [20.0] * 2
 
 scale = None
 sample_size = int(1e6)
-gen_scaler = "Rambo" # Simple, Schumann, Momenta, Minrep, Heimel, Ramobo
+gen_scaler = "Heimel" # Simple, Schumann, Momenta, Minrep, Heimel, Rambo
 disc_scaler = None
 
 ############
 # Training #
 ############
 
-n_epochs = 5
+n_epochs = 100
 batch_size = 2000
 betas = (0.9, 0.999)
 
 lr_scheduler = "onecycle" # or "exponential"
-lr = 5e-4
-max_lr = 3e-3
+lr = 1e-4
+max_lr = 1e-3
 
 gamma = 0.995
 exp_decay = 0.1
@@ -37,7 +37,7 @@ weight_decay = 1e-5
 # Architecture #
 ################
 
-coupling = "affine"
+coupling = "rqs"
 n_blocks = 14 # was 14
 n_units  = 80 # was 80
 n_layers = 2 # was 2

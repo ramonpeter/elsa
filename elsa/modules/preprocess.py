@@ -443,7 +443,101 @@ class HeimelScaler(Scaler):
         Pp = np.sqrt(Xs **2 + Ys**2 + Zs**2)
         Pt = np.sqrt(Xs **2 + Ys**2)
         Eta = np.arctanh(Zs/Pp)
-        Phi = np.arctan2(Xs,Ys)
+        Phi = np.arctan2(Ys,Xs)
+        
+        # Get transformed pt
+        Pt = np.log(Pt - self.ptcuts)
+        
+        # Get transformed delta phis
+        Delta_phi = (Phi - Phi[:,:1] + np.pi) % (2*np.pi) - np.pi
+        Delta_phi[:,0] = Phi[:,0]
+        Delta_phi = np.arctanh(Delta_phi/np.pi)
+        
+        # Add output
+        out.append(Pt)
+        out.append(Eta)
+        out.append(Delta_phi)
+        x_out = np.stack(out, axis=1)
+        
+        # x_out.shape: (b, 3, n_particles)
+        # transpose -> (b, n_particles, 3)
+        # reshape   -> (b, 3 * n_particles)
+        shape_dim = 3 * self.n_particles
+        x_out = np.transpose(x_out, (0, 2, 1)).reshape(x_out.shape[0], shape_dim)
+        
+        return x_out
+    
+class LaserScaler(Scaler):
+    """Propreccing of LHC data
+    Takes transformed 3-mom representation of final state particles including
+    some augmented features, yielding
+    
+    d = 3n + m,
+    
+    dimensions and features. Final output is mapped onto [0,1] 
+    , or centered and scaled (is_hypercube=False = Default).
+    """
+
+    def __init__(
+        self, 
+        e_had: float, 
+        n_particles: int, 
+        masses: list, 
+        ptcuts: list, 
+        is_hypercube: bool=False,
+        **kwargs
+    ):
+        """
+        Args:
+            e_had (float): hadronic center of mass energy.
+            nparticles (int): number of final state particles.
+            masses (list, optional): list of final state masses. Defaults to None.
+        """
+        super().__init__(is_hypercube)
+        self.e_had = e_had
+        self.masses = np.array(masses)[None,...]
+        self.ptcuts = np.array(ptcuts)[None,...]
+        assert self.masses.shape[1] == self.ptcuts.shape[1]
+        self.n_particles = n_particles
+       
+        self.fitted = False
+        self.feature_min = -e_had/2
+        self.feature_max = e_had/2
+    
+    def _reparam(self, x_or_z: np.ndarray, inverse: bool=False):
+        """
+        Makes reparametrization into
+            x = {pf1,..,pfn}
+        with
+            pf = {px, py, pz} and only pfn={pz}
+        
+        And transforms the shapes according to:
+            (batch_size, 4 * n_particles) 
+                <--inverse | forward--> 
+            (batch_size, 3 * n_particles - 2)
+
+        """
+        if inverse:
+            raise ValueError("No inverse available!! Only use it for the discriminator")
+        
+        #--- Forward direction ----#
+        out = []
+        # x.shape:     (b, 4 * n_particles)
+        # reshape   -> (b, n_particles, 4)
+        # transpose -> (b, 4, n_particles)
+        x = np.reshape(x_or_z, (x_or_z.shape[0], self.n_particles, 4)).transpose(0, 2, 1)
+        
+        # get E, Px, Py, Pz
+        Es = x[:, 0, :]
+        Xs = x[:, 1, :]
+        Ys = x[:, 2, :]
+        Zs = x[:, 3, :]
+        
+        # get pt, eta, phi
+        Pp = np.sqrt(Xs **2 + Ys**2 + Zs**2)
+        Pt = np.sqrt(Xs **2 + Ys**2)
+        Eta = np.arctanh(Zs/Pp)
+        Phi = np.arctan2(Ys,Xs)
         
         # Get transformed pt
         Pt = np.log(Pt - self.ptcuts)

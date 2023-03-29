@@ -91,18 +91,16 @@ class netG(nn.Module):
 class netD(nn.Module):
     def __init__(
         self,
-        in_dim=2,
-        n_units=16,
-        num_layers=1,
+        in_dim: int,
+        config,
         steps_per_epoch = None,
         device=torch.device("cpu"),
-        config=None,
     ):
         super(netD, self).__init__()
 
         self.in_dim = in_dim
-        self.n_units = n_units
-        self.num_layers = num_layers
+        self.n_units = config.disc_n_units
+        self.n_layers = config.disc_n_layers
         self.device = device
         self.config = config
         self.steps_per_epoch = steps_per_epoch
@@ -121,7 +119,7 @@ class netD(nn.Module):
         # model.append(nn.ReLU())
         model.append(nn.LeakyReLU(0.1))
 
-        for layer in range(self.num_layers):
+        for _ in range(self.n_layers):
             model.append(
                 spectral_norm(
                     nn.Linear(self.n_units, self.n_units), n_power_iterations=2
@@ -145,7 +143,7 @@ class netD(nn.Module):
         # model.append(nn.ReLU())
         model.append(nn.LeakyReLU(0.1))
 
-        for layer in range(self.num_layers):
+        for _ in range(self.n_layers):
             model.append(nn.Linear(self.n_units, self.n_units))
             # model.append(nn.ReLU())
             model.append(nn.LeakyReLU(0.1))
@@ -161,25 +159,32 @@ class netD(nn.Module):
         for l in self.model:
             x = l(x)
         return x
-
+    
     def set_optimizer(self):
-        """
-        Set optimizer for training
-        """
+
         self.optim = torch.optim.Adam(
             self.params_trainable,
-            lr=self.config.lr,
+            lr=self.config.disc_lr,
             betas=self.config.betas,
             eps=1e-6,
         )
         
-        if self.steps_per_epoch is not None:
+        lr_decay = self.config.disc_exp_decay
+        lr_scheduler = self.config.disc_lr_scheduler
+        
+        if lr_scheduler == "onecycle":
             self.scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer=self.optim, max_lr=self.config.max_lr, steps_per_epoch=self.steps_per_epoch, epochs=self.config.n_epochs
+            optimizer=self.optim, max_lr=self.config.disc_max_lr, steps_per_epoch=self.steps_per_epoch, epochs=self.config.disc_n_epochs
+            )
+        elif lr_scheduler == "exponential":
+            weight_updates = self.steps_per_epoch * self.config.disc_n_epochs
+            decay_rate = lr_decay ** (1 / max(weight_updates, 1))
+            self.scheduler = torch.optim.lr_scheduler.ExponentialLR(
+                self.optim, gamma=decay_rate
             )
         else: 
             self.scheduler = torch.optim.lr_scheduler.StepLR(
-                optimizer=self.optim, step_size=1, gamma=self.config.gamma
+                optimizer=self.optim, step_size=1, gamma=self.config.disc_gamma
             )
 
     def save(self, name):
@@ -191,4 +196,4 @@ class netD(nn.Module):
         try:
             self.optim.load_state_dict(state_dicts["opt"])
         except ValueError:
-            print("Cannot load optimizer for some reason or other")
+            print("Cannot load optimizer")

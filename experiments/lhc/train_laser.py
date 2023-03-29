@@ -5,9 +5,10 @@ import sys, os
 import torch
 import numpy as np
 import pandas as pd
+import time
 
 # Models
-from elsa.models.flow_model import RQSFlow, CubicSplineFlow, INN
+from elsa.models.flow_model import AffineFlow, CubicFlow, RQSFlow
 from elsa.models.gan_models import netD
 from elsa.modules.mcmc import HamiltonMCMC
 
@@ -16,7 +17,6 @@ from elsa.utils.train_utils import (
     AverageMeter,
     print_log,
     get_real_data,
-    save_checkpoint,
 )
 from elsa.utils.load_data import Loader
 
@@ -24,22 +24,22 @@ from elsa.utils.load_data import Loader
 from elsa.utils.distributions import Distribution
 
 # Load config and opts
-import config_LSR as c
+import config_LSR as conf
 import opts
 
 ###########
 ## Setup ##
 ###########
 
-opts.parse(sys.argv, c)
+opts.parse(sys.argv, conf)
 config_str = ""
 config_str += "===" * 30 + "\n"
 config_str += "Config options:\n\n"
 
-for v in dir(c):
+for v in dir(conf):
     if v[0] == "_":
         continue
-    s = eval("c.%s" % (v))
+    s = eval("conf.%s" % (v))
     config_str += " {:25}\t{}\n".format(v, s)
 
 config_str += "===" * 30 + "\n"
@@ -53,14 +53,8 @@ print(f"device: {device}")
 ## Load data ##
 ###############
 
-# TODO: Fix new scaler
-train_loader, validate_loader, dataset_size, data_shape, scaler = Loader(
-    c.datapath, c.dataset, c.batch_size, c.test, c.scale, c.weighted, device
-)
-STEPS_PER_EPOCH = len(train_loader)
-
-if c.weighted:
-    data_shape -= 1
+loader = Loader(conf, device)
+STEPS_PER_EPOCH = len(loader.train_data)
 
 print("\n" + "===" * 30 + "\n")
 
@@ -68,21 +62,41 @@ print("\n" + "===" * 30 + "\n")
 ## Define Flow Model ##
 #######################
 
-flow = INN(
-    in_dim=data_shape,
-    aug_dim=c.aug_dim,
-    n_blocks=c.n_blocks,
-    n_units=c.n_units,
-    n_layers=c.n_layers,
-    device=device,
-    config=c,
-    steps_per_epoch=STEPS_PER_EPOCH,
-)
+if conf.coupling == "affine":
+    flow = AffineFlow(
+        in_dim=loader.shape,
+        aug_dim=conf.aug_dim,
+        config=conf,
+        unit_hypercube=loader.is_hypercube,
+        steps_per_epoch=STEPS_PER_EPOCH,
+        device=device,
+    )
+elif conf.coupling == "rqs":
+    flow = RQSFlow(
+        in_dim=loader.shape,
+        aug_dim=conf.aug_dim,
+        config=conf,
+        unit_hypercube=loader.is_hypercube,
+        steps_per_epoch=STEPS_PER_EPOCH,
+        device=device,
+    )
+elif conf.coupling == "cubic":
+    flow = CubicFlow(
+        in_dim=loader.shape,
+        aug_dim=conf.aug_dim,
+        config=conf,
+        unit_hypercube=loader.is_hypercube,
+        steps_per_epoch=STEPS_PER_EPOCH,
+        device=device,
+    )
+else:
+    raise ValueError(f"Coupling {conf.coupling} is not a valid argument")
+
 flow.define_model_architecture()
 flow.set_optimizer()
 
 print("\n" + "===" * 30 + "\n")
-# print(flow.model)
+#print(flow.model)
 print("Total parameters: %d" % sum([np.prod(p.size()) for p in flow.params_trainable]))
 print("\n" + "===" * 30 + "\n")
 
@@ -90,89 +104,58 @@ print("\n" + "===" * 30 + "\n")
 ## Training primary generator ##
 ################################
 
-try:
-    log_dir = c.save_dir
+# define log_dir
+log_dir = f"{conf.save_dir}/{conf.dataset}/hmc/{conf.n_epochs:03d}_fepochs_{conf.coupling}_f{conf.gen_scaler}_d{conf.disc_scaler}"
+model_path = os.path.join(log_dir, "flow_model.pth")
 
-    if not os.path.exists(
-        log_dir + "/" + c.dataset + "/" + "hmc/n_epochs_" + str(c.n_epochs)
-    ):
-        os.makedirs(log_dir + "/" + c.dataset + "/" + "hmc/n_epochs_" + str(c.n_epochs))
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir)
 
+if conf.train:
     F_loss_meter = AverageMeter()
+    print("Training...")
+    start_time = time.time()
+    for epoch in range(conf.n_epochs):
+        i = 0
 
-    print("Flow Training...")
-    for epoch in range(c.n_epochs):
-        for iteration in range(c.n_its_per_epoch_gen):
+        for train_batch in loader.train_data:
+            flow.model.train()
+            flow.optim.zero_grad()
+            f_loss = -flow.model.log_prob(train_batch.to(device)).mean()
 
-            i = 0
+            F_loss_meter.update(f_loss.item())
 
-            for train_batch in train_loader:
+            f_loss.backward()
+            flow.optim.step()
+            if flow.scheduler is not None:
+                flow.scheduler.step()
 
-                flow.model.train()
-                flow.optim.zero_grad()
+            i += 1
 
-                f_loss = -flow.model.log_prob(train_batch.to(device)).mean()
-
-                F_loss_meter.update(f_loss.item())
-
-                f_loss.backward()
-                flow.optim.step()
-                flow.scheduler.step() # put here when using OneCycleLR
-
-                i += 1
-
-            if epoch == 0 or (epoch + 1) % c.show_interval == 0:
-                print_log(
-                    epoch + 1,
-                    c.n_epochs,
-                    i,
-                    len(train_loader),
-                    flow.scheduler.optimizer.param_groups[0]["lr"],
-                    c.show_interval,
-                    F_loss_meter,
-                )
+        if epoch == 0 or (epoch + 1) % conf.show_interval == 0:
+            print_log(
+                epoch + 1,
+                conf.n_epochs,
+                i,
+                len(loader.train_data),
+                flow.scheduler.optimizer.param_groups[0]["lr"],
+                conf.show_interval,
+                F_loss_meter,
+            )
 
             F_loss_meter.reset()
 
-        if (epoch + 1) % c.save_interval == 0 or epoch + 1 == c.n_epochs:
-            if c.save_model == True:
+    train_time = time.time() - start_time
+    print(f"--- Run time: {train_time / 60 / 60} hour ---")
+    print(f"--- Run time: {train_time / 60} mins ---")
+    print(f"--- Run time: {train_time} secs ---")
+    if conf.save_model == True:
+        print("Save Flow Model...")
+        flow.save(model_path)
 
-                checkpoint_F = {
-                    "epoch": epoch + 1,
-                    "model": flow.model.state_dict(),
-                    "optimizer": flow.optim.state_dict(),
-                }
-                save_checkpoint(
-                    checkpoint_F,
-                    log_dir + "/" + c.dataset + "/hmc/n_epochs_" + str(c.n_epochs),
-                    "checkpoint_F_epoch_%03d" % (epoch + 1),
-                )
-
-            if c.test == True:
-                size = 10000
-            else:
-                size = 300000
-
-            with torch.no_grad():
-                real = get_real_data(c.datapath, c.dataset, c.test, size)
-
-                fake, _ = flow.model.sample(size)
-                fake = scaler.inverse_transform(fake.cpu().detach().numpy())
-
-            distributions = Distribution(
-                real,
-                fake,
-                "epoch_%03d" % (epoch + 1) + "_target",
-                "Flow",
-                log_dir + "/" + c.dataset + "/hmc/n_epochs_" + str(c.n_epochs),
-                c.dataset,
-            )
-            distributions.plot()
-
-except:
-    if c.checkpoint_on_error:
-        flow.model.save(c.filename + "_ABORT")
-    raise
+else:
+    print("Load Flow Model...")
+    flow.load(model_path)
 
 #######################
 ## Define Classifier ##
@@ -180,11 +163,10 @@ except:
 
 # TODO: Add an augmentation layer to make life easier! Maybe not needed working on hypercube?
 D = netD(
-    in_dim=data_shape,
-    num_layers=c.n_layers_disc,
-    n_units=c.n_units_disc,
+    in_dim=loader.disc_shape,
+    config=conf,
+    steps_per_epoch=STEPS_PER_EPOCH,
     device=device,
-    config=c,
 )
 D.define_model_architecture_unreg()
 D.set_optimizer()
@@ -204,166 +186,111 @@ D_loss_meter = AverageMeter()
 ## Training classifier ##
 #########################
 
-try:
-    flow.model.eval()
+#
+d_model_path = os.path.join(log_dir, "d_model.pth")
 
-    for epoch in range(c.n_epochs):
-        for iteration in range(c.n_its_per_epoch_ref):
+if conf.train:
+    flow.model.eval() # make sure its not trained!
+
+    for epoch in range(conf.disc_n_epochs):
+        for iteration in range(conf.n_its_per_epoch):
 
             i = 0
 
-            for train_batch in train_loader:
+            for train_batch in loader.disc_train_data:
 
                 D.model.train()
                 D.optim.zero_grad()
 
-                label_real = torch.ones(c.batch_size).double().to(device)
-                label_fake = torch.zeros(c.batch_size).double().to(device)
-                
-                train_batch = scaler.inverse_transform(train_batch.cpu().detach().numpy())
-                train_batch = torch.tensor(train_batch).to(device)
+                label_real = torch.ones(conf.batch_size).double().to(device)
+                label_fake = torch.zeros(conf.batch_size).double().to(device)
 
-                d_result_real = D(train_batch).view(-1)
-                d_loss_real_ = phi_1(d_result_real, label_real, None).mean(-1)
+                d_result_real = D(train_batch.to(device)).view(-1)
+                d_loss_real_ = phi_1(d_result_real, label_real, None).mean()
 
-                fake, lat = flow.model.sample(c.batch_size)
-                fake = scaler.inverse_transform(fake.cpu().detach().numpy())
-                fake = torch.tensor(fake).to(device)
-                d_result_fake = D(fake).view(-1)
+                fake, _ = flow.model.sample(conf.batch_size)
+                if conf.disc_scaler is not None:
+                    fake = loader.gen_scaler.inverse_transform(fake.cpu().detach().numpy())
+                    fake = loader.disc_scaler.transform(fake)
+                    fake = torch.tensor(fake)
+                d_result_fake = D(fake.to(device)).view(-1)
                 d_loss_fake_ = phi_2(d_result_fake, None, label_fake).mean()
                 d_loss = d_loss_real_ + d_loss_fake_
                 D_loss_meter.update(d_loss.item())
 
                 d_loss.backward()
                 D.optim.step()
+                if D.scheduler is not None:
+                    D.scheduler.step()
 
                 i += 1
 
-            if epoch == 0 or (epoch + 1) % c.show_interval == 0:
+            if epoch == 0 or (epoch + 1) % conf.show_interval == 0:
                 print_log(
                     epoch + 1,
-                    c.n_epochs,
+                    conf.disc_n_epochs,
                     i,
-                    len(train_loader),
+                    len(loader.disc_train_data),
                     D.scheduler.optimizer.param_groups[0]["lr"],
-                    c.show_interval,
+                    conf.show_interval,
                     D_loss_meter,
                 )
 
             D_loss_meter.reset()
 
-        if (epoch + 1) % c.save_interval == 0 or epoch + 1 == c.n_epochs:
-            if c.save_model == True:
+    train_time = time.time() - start_time
+    print(f"--- Run time: {train_time / 60 / 60} hour ---")
+    print(f"--- Run time: {train_time / 60} mins ---")
+    print(f"--- Run time: {train_time} secs ---")
+    if conf.save_model == True:
+        print("Save Classifier Model...")
+        flow.save(d_model_path)
 
-                checkpoint_D = {
-                    "epoch": epoch + 1,
-                    "model": D.model.state_dict(),
-                    "optimizer": D.optim.state_dict(),
-                }
-                save_checkpoint(
-                    checkpoint_D,
-                    log_dir + "/" + c.dataset + "/hmc/n_epochs_" + str(c.n_epochs),
-                    "checkpoint_D_epoch_%03d" % (epoch + 1),
-                )
-
-            if c.test == True:
-                size = 10000
-            else:
-                size = 300000
-
-            with torch.no_grad():
-                real = get_real_data(c.datapath, c.dataset, c.test, size, scaler)
-                noise = torch.randn(size, data_shape).detach().numpy()
-
-                inv, lat = flow.model.sample(size)
-                lat = lat.detach().numpy()
-
-                enc = (
-                    flow.model.encode(torch.Tensor(real).double().to(device))
-                    .detach()
-                    .numpy()
-                )
-
-                out_D = D(inv)
-                weights = torch.exp(out_D).cpu().detach().numpy().flatten()
-
-                inv = scaler.inverse_transform(inv.cpu().detach().numpy())
-
-            distributions = Distribution(
-                scaler.inverse_transform(real),
-                inv,
-                "epoch_%03d" % (epoch + 1) + "_target_weighted",
-                "Weighted",
-                log_dir + "/" + c.dataset + "/hmc/n_epochs_" + str(c.n_epochs),
-                c.dataset,
-                latent=False,
-                weights=weights,
-                extra_data=inv,
-            )
-            distributions.plot()
-            distributions = Distribution(
-                enc,
-                lat,
-                "epoch_%03d" % (epoch + 1) + "_latent_weighted",
-                "Weighted",
-                log_dir + "/" + c.dataset + "/hmc/n_epochs_" + str(c.n_epochs),
-                c.dataset,
-                latent=True,
-                weights=weights,
-            )
-            distributions.plot()
-
-        D.scheduler.step()
-
-except:
-    if c.checkpoint_on_error:
-        D.save(c.filename + "_ABORT")
-    raise
+else:
+    print("Load Classifier Model...")
+    D.load(d_model_path)
 
 ##############
 ## Sampling ##
 ##############
 
-size = c.sample_size
+size = conf.sample_size
 N_CHAINS = 100
 
 # Get refined samples
 hamilton = HamiltonMCMC(
-    flow, D, latent_dim=data_shape, L=30, eps=0.01, n_chains=N_CHAINS, burnin=5000
+    flow, D, loader, latent_dim=loader.shape, L=30, eps=0.01, n_chains=N_CHAINS, burnin=500,
 )
-z, rate = hamilton.sample(data_shape, size // N_CHAINS)
+z, rate = hamilton.sample(loader.shape, size // N_CHAINS)
 print("rate = ", rate)
 
 refined = flow.model.sample_refined(z)
-refined = scaler.inverse_transform(refined.cpu().detach().numpy())
+refined = loader.gen_scaler.inverse_transform(refined.cpu().detach().numpy())
 z = z.cpu().detach().numpy()
 
 # get base samples and weights
 fake, z_base = flow.model.sample(size)
+if conf.disc_scaler is not None:
+    fake = loader.gen_scaler.inverse_transform(fake.cpu().detach().numpy())
+    fake = loader.disc_scaler.transform(fake)
+    fake = torch.tensor(fake)
 out_D = D(fake)
 weights = torch.exp(out_D)
 z_base = z_base.cpu().detach().numpy()
 weights = weights.cpu().detach().numpy()
-fake = scaler.inverse_transform(fake.cpu().detach().numpy())
+fake = loader.gen_scaler.inverse_transform(fake.cpu().detach().numpy())
 
 # get DCTR samples
 dctr = np.concatenate((fake, z_base, weights), axis=-1)
 
 # get real samples
-real = get_real_data(c.datapath, c.dataset, c.test, size)
+real = get_real_data(conf.datapath, conf.dataset, conf.test, size)
 
-s1 = pd.HDFStore(
-    log_dir + "/" + c.dataset + "/hmc/n_epochs_" + str(c.n_epochs) + "/" + "base.h5"
-)
-s2 = pd.HDFStore(
-    log_dir + "/" + c.dataset + "/hmc/n_epochs_" + str(c.n_epochs) + "/" + "latent.h5"
-)
-s3 = pd.HDFStore(
-    log_dir + "/" + c.dataset + "/hmc/n_epochs_" + str(c.n_epochs) + "/" + "refined.h5"
-)
-s4 = pd.HDFStore(
-    log_dir + "/" + c.dataset + "/hmc/n_epochs_" + str(c.n_epochs) + "/" + "weighted.h5"
-)
+# Save to hdf5
+s1 =  pd.HDFStore(f"{log_dir}/base.h5")
+s2 =  pd.HDFStore(f"{log_dir}/latent.h5")
+s3 =  pd.HDFStore(f"{log_dir}/refined.h5")
+s4 =  pd.HDFStore(f"{log_dir}/weighted.h5")
 
 s1.append("data", pd.DataFrame(fake))
 s2.append("data", pd.DataFrame(z))
@@ -375,13 +302,14 @@ s2.close()
 s3.close()
 s4.close()
 
+# Make plots
 distributions = Distribution(
     real,
     refined,
     "HMC",
     "HMC",
-    log_dir + "/" + c.dataset + "/hmc/n_epochs_" + str(c.n_epochs),
-    c.dataset,
+    log_dir,
+    conf.dataset,
     extra_data=fake,
 )
 distributions.plot()

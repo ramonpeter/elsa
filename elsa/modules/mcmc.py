@@ -2,6 +2,7 @@
 
 import torch
 from torch.autograd import Variable, grad
+from ..utils.load_data import Loader
 import torch.nn as nn
 
 class HamiltonMCMC(nn.Module):
@@ -15,6 +16,7 @@ class HamiltonMCMC(nn.Module):
 		self,
 		generator: nn.Module,
 		classifier: nn.Module,
+		loader: Loader,
 		latent_dim: int,
 		M: torch.Tensor = None,
 		L: int=100,
@@ -41,6 +43,7 @@ class HamiltonMCMC(nn.Module):
 		self.classifier = classifier
 		self.latent_dim = latent_dim
 		self.burnin = burnin
+		self.loader = loader
 		self.device = device
 
 		if M == None:

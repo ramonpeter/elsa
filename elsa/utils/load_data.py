@@ -53,8 +53,18 @@ class Loader:
 
 		# get dataset
 		self.train_data, self.test_data, self.shape = self.prepare_dataset(
-			self.data, self.gen_scaler
+			self.data, self.gen_scaler, True
 		)
+  
+		# get dataset with other scaler
+		if conf.disc_scaler is not None:
+			self.disc_train_data, self.disc_test_data, self.disc_shape = self.prepare_dataset(
+				self.data, self.disc_scaler, False
+			)
+		else:
+			self.disc_train_data = self.train_data
+			self.disc_test_data = self.test_data
+			self.disc_shape = self.shape
 
 	def read_files(self, datapath, dataset, verbose=True):
 		events = []
@@ -106,7 +116,7 @@ class Loader:
 
 		return scaler
 
-	def prepare_dataset(self, data: np.ndarray, scaler: Scaler):
+	def prepare_dataset(self, data: np.ndarray, scaler: Scaler, flow: bool=True):
 		# preprocess events
 		events = scaler.fit_and_transform(data)
 		# split into train and validate
@@ -114,7 +124,8 @@ class Loader:
 		events_validate = events[self.validate_split :]
 
 		shape = events_train.shape[1]
-		print(f"data shape: {events_train.shape}")
+		model = "flow" if flow else "disc"
+		print(f"{model} data shape: {events_train.shape}")
 
 		# Prepare train and validate data loaders
 		train_loader = torch.utils.data.DataLoader(
