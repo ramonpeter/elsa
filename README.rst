@@ -27,9 +27,9 @@ Download + Install
 .. code:: sh
 
    # clone the repository
-   git clone https://github.com/ramonpeter/ELSA.git
+   git clone https://github.com/ramonpeter/elsa.git
    # then install in dev mode
-   cd ELSA
+   cd elsa
    python setup.py develop
 
 
