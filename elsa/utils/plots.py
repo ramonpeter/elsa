@@ -54,16 +54,15 @@ def plot_distribution_ratio(fig, axs, y_train, y_predict, label_name, args, weig
 		axs[0].yaxis.set_major_formatter(yfmt)
 		#axs[0].set_ylim(ymin=0)
 
-	if extra != []:
+	if extra is not None:
 		y_extra = args[1](extra, args[0])
 		y_e, x_e = np.histogram(y_extra, args[2], density=True, range=args[3])
 
-	y_t, x_t = np.histogram(y_train, args[2], density=True, range=args[3])#, weights=weights)
+	y_t, x_t = np.histogram(y_train, args[2], density=True, range=args[3])
+	y_p, x_p = np.histogram(y_predict, args[2], density=True, range=args[3])
 	
-	if weights != []:
-		y_p, x_p = np.histogram(y_predict, args[2], density=True, range=args[3], weights=weights)
-	else:
-		y_p, x_p = np.histogram(y_predict, args[2], density=True, range=args[3])
+	if weights is not None:
+		y_w, x_w = np.histogram(y_predict, args[2], density=True, range=args[3], weights=weights[:,0])
 
 	#y_w, x_w = np.histogram(y_predict, args[2], density=True, range=args[3], weights=weights)
 	#y_e, x_e = np.histogram(y_extra, args[2], density=True, range=args[3])
@@ -77,8 +76,11 @@ def plot_distribution_ratio(fig, axs, y_train, y_predict, label_name, args, weig
 		
 	axs[0].step(x_t[:args[2]], y_t, gcolor, label='Truth', linewidth=1.0, where='mid')
 	axs[0].step(x_t[:args[2]], y_p, dcolor, label=label_nm, linewidth=1.0, where='mid')
+ 
+	if weights is not None:
+		axs[0].step(x_w[:args[2]], y_w, teal, label='DCTR', linewidth=1.0, where='mid')
 	
-	if extra != []:
+	if extra is not None:
 		axs[0].step(x_e[:args[2]], y_e, teal, label='Base', linewidth=1.0, where='mid')
 
 	for j in range(2):
@@ -97,11 +99,17 @@ def plot_distribution_ratio(fig, axs, y_train, y_predict, label_name, args, weig
 	y_r [np.isnan(y_r )==True]=1
 	y_r [y_r==np.inf]=1
 
-	if extra != []:
+	if extra is not None:
 		y_r3 = (y_e)/y_t
 		y_r3 [np.isnan(y_r3)==True]=1
 		y_r3 [y_r3==np.inf]=1
 		axs[1].step(x_t[:args[2]], y_r3, teal, linewidth=1.0, where='mid')
+  
+	if weights is not None:
+		y_rw = (y_w)/y_t
+		y_rw [np.isnan(y_rw)==True]=1
+		y_rw [y_rw==np.inf]=1
+		axs[1].step(x_t[:args[2]], y_rw, teal, linewidth=1.0, where='mid')
 
 	axs[1].step(x_t[:args[2]], y_r, dcolor, linewidth=1.0, where='mid')
 	#axs[1].step(x_t[:args[2]], y_r3, teal, linewidth=1.0, where='mid')

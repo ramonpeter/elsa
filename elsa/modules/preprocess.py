@@ -522,6 +522,7 @@ class LaserScaler(Scaler):
         
         #--- Forward direction ----#
         out = []
+        aug = []
         # x.shape:     (b, 4 * n_particles)
         # reshape   -> (b, n_particles, 4)
         # transpose -> (b, 4, n_particles)
@@ -540,26 +541,46 @@ class LaserScaler(Scaler):
         Phi = np.arctan2(Ys,Xs)
         
         # Get transformed pt
-        Pt = np.log(Pt - self.ptcuts)
+        Pt = np.log(Pt)
         
-        # Get transformed delta phis
-        Delta_phi = (Phi - Phi[:,:1] + np.pi) % (2*np.pi) - np.pi
-        Delta_phi[:,0] = Phi[:,0]
-        Delta_phi = np.arctanh(Delta_phi/np.pi)
-        
-        # Add output
+        # # Add output
         out.append(Pt)
         out.append(Eta)
-        out.append(Delta_phi)
+        
+        # Get transformed delta phis
+        for i in range(1, self.n_particles):
+            for j in range(i+1, self.n_particles):
+                dphi = np.fabs(Phi[:,[i]] - Phi[:,[j]])
+                dphimin = np.where(dphi>np.pi, 2.0 * np.pi - dphi, dphi)
+                dphimin = np.arctanh(dphimin/np.pi * 2 - 1)
+                aug.append(dphimin)
+                
+        # Get transformed delta etas
+        for i in range(1, self.n_particles):
+            for j in range(i+1, self.n_particles):
+                deta = np.abs(Eta[:,[i]] - Eta[:,[j]])
+                aug.append(np.log(deta))
+                
+        # Get transformed delta R
+        for i in range(1, self.n_particles):
+            for j in range(i+1, self.n_particles):
+                dphi = np.fabs(Phi[:,[i]] - Phi[:,[j]])
+                deta = np.abs(Eta[:,[i]] - Eta[:,[j]])
+                dphimin = np.where(dphi>np.pi, 2.0 * np.pi - dphi, dphi)
+                dR = np.sqrt(dphimin ** 2 + deta ** 2)
+                aug.append(np.log(dR))
+    
+        n_out = len(out)
         x_out = np.stack(out, axis=1)
         
-        # x_out.shape: (b, 3, n_particles)
-        # transpose -> (b, n_particles, 3)
-        # reshape   -> (b, 3 * n_particles)
-        shape_dim = 3 * self.n_particles
+        # x_out.shape: (b, features, n_particles)
+        # transpose -> (b, n_particles, features)
+        # reshape   -> (b, features * n_particles)
+        shape_dim =  n_out * self.n_particles
         x_out = np.transpose(x_out, (0, 2, 1)).reshape(x_out.shape[0], shape_dim)
         
-        return x_out
+        x_aug = np.concatenate(aug, axis=-1)
+        return np.concatenate([x_out, x_aug], axis=-1)
     
 class RamboScaler(Scaler):
     """Propreccing of LHC data"""

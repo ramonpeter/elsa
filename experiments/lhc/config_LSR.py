@@ -3,10 +3,10 @@
 ##################
 
 datapath = '../../datasets/lhc/'
-dataset = 'wp_2j' # wp_2j, wp_3j
+dataset = 'wp_3j' # wp_2j, wp_3j
 e_had = 14000
-masses = [80.419] + [0.] * 2
-ptcuts = [0.] + [20.0] * 2
+masses = [80.419] + [0.] * 3
+ptcuts = [0.] + [20.0] * 3
 
 ########
 # Data #
@@ -14,8 +14,8 @@ ptcuts = [0.] + [20.0] * 2
 
 scale = None
 sample_size = int(1e6)
-gen_scaler = "Heimel" # Simple, Schumann, Momenta, Minrep, Heimel, Ramobo
-disc_scaler = None
+gen_scaler = "Rambo" # Simple, Schumann, Momenta, Minrep, Heimel, Rambo
+disc_scaler = "Laser" # Laser and above
 
 #################
 # Flow Training #
@@ -37,7 +37,7 @@ weight_decay = 1e-5
 # Classifier Training #
 #######################
 
-disc_n_epochs = 100
+disc_n_epochs = 50
 
 disc_lr_scheduler = "onecycle" # or "exponential"
 disc_lr = 5e-4
@@ -51,7 +51,7 @@ n_its_per_epoch = 1
 # Architecture #
 ################
 
-coupling = "affine"
+coupling = "rqs"
 n_blocks = 14
 n_units  = 80
 n_layers = 2

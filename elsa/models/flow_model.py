@@ -199,6 +199,62 @@ class RQSFlow(BaseFlow):
         self.params_trainable = list(
             filter(lambda p: p.requires_grad, self.model.parameters())
         )
+        
+class RealRQSFlow(BaseFlow):
+    def __init__(
+        self,
+        in_dim: int,
+        aug_dim: int,
+        config,
+        unit_hypercube: bool,
+        steps_per_epoch: int,
+        device=torch.device("cpu"),
+        n_bins: int = 10,
+    ):
+        super().__init__(in_dim, aug_dim, config, unit_hypercube, steps_per_epoch, device=device)
+        self.n_bins = n_bins
+
+    def define_model_architecture(self):
+        A = self.in_dim + self.aug_dim
+        SPLITS = [A - A // 2, A // 2]
+        B = self.n_bins
+        P = 3 * B + 1
+
+        hidden_units = [self.n_units for _ in range(self.n_layers)]
+
+        if not self.unit_hypercube:
+            transforms = [Sigmoid()]
+        else:
+            transforms = []
+            
+        if self.aug_dim:
+            print(f"Augmented RQS-Flow (dims = {self.in_dim} + {self.aug_dim})")
+            transforms.append(Augment(StandardUniform((self.aug_dim,)), x_size=self.in_dim))
+        else:
+            print(f"Baseline RQS-Flow (dims = {self.in_dim})")
+        
+        for _ in range(self.n_blocks):
+            net = nn.Sequential(
+                MLP(SPLITS[0], P * SPLITS[1], hidden_units=hidden_units, activation="relu"),
+                ElementwiseParams(P),
+            )
+            transforms.append(
+                RationalQuadraticSplineCouplingBijection(net, num_bins=B)
+            )
+            transforms.append(Shuffle(A))
+            #transforms.append(Reverse(A))
+        transforms.pop()
+        
+        transforms.append(Logit())
+
+        self.model = (
+            Flow(base_dist=StandardNormal((A,)), transforms=transforms)
+            .double()
+            .to(self.device)
+        )
+        self.params_trainable = list(
+            filter(lambda p: p.requires_grad, self.model.parameters())
+        )
             
 
 class CubicFlow(BaseFlow):

@@ -18,15 +18,15 @@ class Distribution(Observable):
 	specified dataset.
 	"""
 	def __init__(self,
-				 real_data: np.array,
-				 gen_data: np.array,
+				 real_data: np.ndarray,
+				 gen_data: np.ndarray,
 				 name: str,
 				 label_name: str,
 				 log_dir: str,
 				 dataset: str,
 				 latent: bool=False,
-				 weights: np.array=[],
-				 extra_data: np.array=[]
+				 weights: np.ndarray=None,
+				 extra_data: np.ndarray=None
      	):
 		super(Distribution, self).__init__()
 		self.real_data = real_data

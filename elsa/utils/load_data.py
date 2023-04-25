@@ -12,6 +12,7 @@ from ..modules.preprocess import (
     ThreeMomScaler,
     MinimalRepScaler,
     HeimelScaler,
+    LaserScaler,
 )
 
 
@@ -111,6 +112,9 @@ class Loader:
 		elif scl_str == "Rambo":
 			assert self.toy == False, "`{scl_str}`-scaler cannot be used with toy example"
 			scaler = RamboScaler(self.e_had, self.nparticles, self.masses)
+		elif scl_str == "Laser":
+			assert self.toy == False, "`{scl_str}`-scaler cannot be used with toy example"
+			scaler = LaserScaler(self.e_had, self.nparticles, self.masses, ptcuts=self.ptcuts)
 		else:
 			raise ValueError("Scaler is not implemented")
 

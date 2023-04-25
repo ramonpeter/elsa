@@ -9,32 +9,32 @@ DEFAULT_MIN_BIN_WIDTH = 1e-3
 DEFAULT_MIN_BIN_HEIGHT = 1e-3
 DEFAULT_MIN_DERIVATIVE = 1e-3
 
-def unconstrained_rational_quadratic_spline(inputs,
-                                            unnormalized_widths,
-                                            unnormalized_heights,
-                                            unnormalized_derivatives,
-                                            inverse=False,
-                                            tails='linear',
-                                            tail_bound=1.,
-                                            min_bin_width=DEFAULT_MIN_BIN_WIDTH,
-                                            min_bin_height=DEFAULT_MIN_BIN_HEIGHT,
-                                            min_derivative=DEFAULT_MIN_DERIVATIVE):
-    inside_interval_mask = (inputs >= -tail_bound) & (inputs <= tail_bound)
-    outside_interval_mask = ~inside_interval_mask
+def unconstrained_rational_quadratic_spline(
+    inputs,
+    unnormalized_widths,
+    unnormalized_heights,
+    unnormalized_derivatives,
+    inverse=False,
+    left=0.0,
+    right=1.0,
+    bottom=0.0,
+    top=1.0,
+    min_bin_width=DEFAULT_MIN_BIN_WIDTH,
+    min_bin_height=DEFAULT_MIN_BIN_HEIGHT,
+    min_derivative=DEFAULT_MIN_DERIVATIVE,
+):
+    if not inverse:
+        inside_interval_mask = torch.all((inputs >= left) & (inputs <= right), dim=-1)
+    else:
+        inside_interval_mask = torch.all((inputs >= bottom) & (inputs <= top), dim=-1)
 
+    outside_interval_mask = ~inside_interval_mask
+    
     outputs = torch.zeros_like(inputs)
     logabsdet = torch.zeros_like(inputs)
 
-    if tails == 'linear':
-        unnormalized_derivatives = F.pad(unnormalized_derivatives, pad=(1, 1))
-        constant = np.log(np.exp(1 - min_derivative) - 1)
-        unnormalized_derivatives[..., 0] = constant
-        unnormalized_derivatives[..., -1] = constant
-
-        outputs[outside_interval_mask] = inputs[outside_interval_mask]
-        logabsdet[outside_interval_mask] = 0
-    else:
-        raise RuntimeError('{} tails are not implemented.'.format(tails))
+    outputs[outside_interval_mask] = inputs[outside_interval_mask]
+    logabsdet[outside_interval_mask] = 0
 
     outputs[inside_interval_mask], logabsdet[inside_interval_mask] = rational_quadratic_spline(
         inputs=inputs[inside_interval_mask],
@@ -42,10 +42,13 @@ def unconstrained_rational_quadratic_spline(inputs,
         unnormalized_heights=unnormalized_heights[inside_interval_mask, :],
         unnormalized_derivatives=unnormalized_derivatives[inside_interval_mask, :],
         inverse=inverse,
-        left=-tail_bound, right=tail_bound, bottom=-tail_bound, top=tail_bound,
+        left=left,
+        right=right,
+        bottom=bottom,
+        top=top,
         min_bin_width=min_bin_width,
         min_bin_height=min_bin_height,
-        min_derivative=min_derivative
+        min_derivative=min_derivative,
     )
 
     return outputs, logabsdet
