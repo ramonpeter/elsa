@@ -6,13 +6,16 @@ import numpy as np
 import pandas as pd
 from ..modules.preprocess import (
     Scaler,
-    RamboScaler,
     SimpleScaler,
-    SchumannScaler,
+    FourMomScaler,
+    ThreeMomPlusScaler,
     ThreeMomScaler,
     MinimalRepScaler,
-    HeimelScaler,
-    LaserScaler,
+    PrecisionEnthusiastScaler,
+    EnlargedFeaturSpaceScaler,
+    MahamboScaler,
+    AugmentedMahamboFeatureScaler,
+    
 )
 
 
@@ -47,7 +50,7 @@ class Loader:
 		# define scaler for gen and discrimination
 		self.gen_scaler = self.get_scaler(self.data, conf.gen_scaler)
 		if conf.disc_scaler is not None:
-			self.disc_scaler = self.get_scaler(self.data, conf.disc_scaler)
+			self.disc_scaler = self.get_scaler(self.data, conf.disc_scaler, is_disc=True)
 		else:
 			self.disc_scaler = self.gen_scaler
 		self.is_hypercube = self.gen_scaler.is_hypercube
@@ -86,7 +89,7 @@ class Loader:
 		self.validate_split = int(len(data) * 0.95)
 		self.split = split
 
-	def get_scaler(self, data: np.ndarray, scl_str: str):
+	def get_scaler(self, data: np.ndarray, scl_str: str, is_disc: bool=False):
 		if scl_str == "Simple":
 			if self.conf.scale is not None:
 				scales = self.conf.scale
@@ -95,26 +98,34 @@ class Loader:
 				scales = np.std(data, 0)
 				means = np.mean(data, 0)
 			scaler = SimpleScaler(scales, means)
-		elif scl_str == "Schumann":
+		elif scl_str == "FourMom":
 			assert self.toy == False, "`{scl_str}`-scaler cannot be used with toy example"
-			scaler = SchumannScaler(self.e_had, self.nparticles, self.masses)
-		elif scl_str == "Momenta":
+			scaler = FourMomScaler(self.e_had, self.nparticles, self.masses)
+		elif scl_str == "ThreeMomPlus":
+			assert self.toy == False, "`{scl_str}`-scaler cannot be used with toy example"
+			scaler = ThreeMomPlusScaler(self.e_had, self.nparticles, self.masses)
+		elif scl_str == "ThreeMom":
 			assert self.toy == False, "`{scl_str}`-scaler cannot be used with toy example"
 			scaler = ThreeMomScaler(self.e_had, self.nparticles, self.masses)
-		elif scl_str == "Minrep":
+		elif scl_str == "MinRep":
 			assert self.toy == False, "`{scl_str}`-scaler cannot be used with toy example"
 			scaler = MinimalRepScaler(self.e_had, self.nparticles, self.masses)
-		elif scl_str == "Heimel":
+		elif scl_str == "Precisesiast":
 			assert self.toy == False, "`{scl_str}`-scaler cannot be used with toy example"
-			scaler = HeimelScaler(
+			scaler = PrecisionEnthusiastScaler(
+				self.e_had, self.nparticles, self.masses, ptcuts=self.ptcuts, is_disc_scaler=is_disc
+			)
+		elif scl_str == "Elfs":
+			assert self.toy == False, "`{scl_str}`-scaler cannot be used with toy example"
+			scaler = EnlargedFeaturSpaceScaler(
 				self.e_had, self.nparticles, self.masses, ptcuts=self.ptcuts
 			)
-		elif scl_str == "Rambo":
+		elif scl_str == "Mahambo":
 			assert self.toy == False, "`{scl_str}`-scaler cannot be used with toy example"
-			scaler = RamboScaler(self.e_had, self.nparticles, self.masses)
-		elif scl_str == "Laser":
+			scaler = MahamboScaler(self.e_had, self.nparticles, self.masses)
+		elif scl_str == "Amber":
 			assert self.toy == False, "`{scl_str}`-scaler cannot be used with toy example"
-			scaler = LaserScaler(self.e_had, self.nparticles, self.masses, ptcuts=self.ptcuts)
+			scaler = AugmentedMahamboFeatureScaler(self.e_had, self.nparticles, self.masses)
 		else:
 			raise ValueError("Scaler is not implemented")
 

@@ -3,8 +3,8 @@
 from typing import Union
 import torch
 import numpy as np
+from scipy.special import expit, logit
 from ..mappings.rambo import RamboOnDietHadron
-from abc import ABC, abstractmethod
 import sys
 
 
@@ -12,7 +12,7 @@ class Scaler():
     
     def __init__(self, is_hypercube: bool):
         self.is_hypercube = is_hypercube
-        self.is_fitted = False
+        self.fitted = False
        
     def _reparam(self, x_or_z: np.ndarray, inverse: bool=False):
         """Needs to be implemented by child class"""
@@ -77,9 +77,29 @@ class SimpleScaler(Scaler):
     def _reparam(self, x_or_z: np.ndarray, inverse: bool=False):
         """No reparametrization"""
         return x_or_z
+    
+
+class FourMomScaler(Scaler):
+    """Basic preprocessing. Just scaling the input
+    with a given mean and scale given as input"""
+    
+    def __init__(self, e_had: float, is_hypercube: bool=False, **kwargs):
+        """
+        Args:
+            scale (np.ndarray): scaling variable
+            mean (np.ndarray, optional): mean variable. Defaults to None.
+        """
+        super().__init__(is_hypercube)
+        self.fitted = False
+        self.feature_min = -e_had/2
+        self.feature_max = e_had/2
+        
+    def _reparam(self, x_or_z: np.ndarray, inverse: bool=False):
+        """No reparametrization"""
+        return x_or_z
         
     
-class SchumannScaler(Scaler):
+class ThreeMomPlusScaler(Scaler):
     """Propreccing of LHC data
     Uses the preprocessing suggested in arxiv:2109.11964.
     
@@ -271,7 +291,7 @@ class MinimalRepScaler(Scaler):
     , or centered and scaled (is_hypercube=False).
     """
 
-    def __init__(self, e_had: float, n_particles: int, masses: list = None, is_hypercube: bool=True, **kwargs):
+    def __init__(self, e_had: float, n_particles: int, masses: list = None, is_hypercube: bool=False, **kwargs):
         """
         Args:
             e_had (float): hadronic center of mass energy.
@@ -337,7 +357,7 @@ class MinimalRepScaler(Scaler):
         z = x_or_z[:,mask]
         return z
     
-class HeimelScaler(Scaler):
+class PrecisionEnthusiastScaler(Scaler):
     """Propreccing of LHC data
     Uses the preprocessing suggested in arxiv:2110.13632.
     Takes transformed 3-mom representation of final state particles yielding
@@ -346,6 +366,152 @@ class HeimelScaler(Scaler):
     
     dimensions and features. Final output is mapped onto [0,1] 
     , or centered and scaled (is_hypercube=False = Default).
+    """
+
+    def __init__(
+        self, 
+        e_had: float, 
+        n_particles: int, 
+        masses: list, 
+        ptcuts: list, 
+        is_hypercube: bool=False,
+        is_disc_scaler: bool=False,
+        **kwargs
+    ):
+        """
+        Args:
+            e_had (float): hadronic center of mass energy.
+            nparticles (int): number of final state particles.
+            masses (list, optional): list of final state masses. Defaults to None.
+        """
+        super().__init__(is_hypercube)
+        self.e_had = e_had
+        self.masses = np.array(masses)[None,...]
+        self.ptcuts = np.array(ptcuts)[None,...]
+        assert self.masses.shape[1] == self.ptcuts.shape[1]
+        self.n_particles = n_particles
+        self.is_disc_scaler = is_disc_scaler
+       
+        self.fitted = False
+        self.feature_min = -e_had/2
+        self.feature_max = e_had/2
+    
+    def _reparam(self, x_or_z: np.ndarray, inverse: bool=False):
+        """
+        Makes reparametrization into
+            x = {pf1,..,pfn}
+        with
+            pf = {px, py, pz} and only pfn={pz}
+        
+        And transforms the shapes according to:
+            (batch_size, 4 * n_particles) 
+                <--inverse | forward--> 
+            (batch_size, 3 * n_particles - 2)
+
+        """
+        if inverse:
+            #--- Inverse direction ----#
+            out = []
+            # x.shape:     (b, 3 * n_particles )
+            # reshape   -> (b, n_particles, 3)
+            # transpose -> (b, 3, n_particles)
+            x = np.reshape(x_or_z, (x_or_z.shape[0], self.n_particles, 3)).transpose(0, 2, 1)
+            
+            # get Pt, Eta, Phi transformed
+            Pt = x[:, 0, :]
+            Eta = x[:, 1, :]
+            Delta_phi = x[:, 2, :]
+            Phi = np.zeros_like(Delta_phi)
+            
+            # Get proper Pt and phi and eta
+            if self.is_disc_scaler:
+                Pt = np.exp(Pt)
+            else:
+                # Cut does not work if generator missed the cut
+                Pt = np.exp(Pt) + self.ptcuts
+
+            Delta_phi = np.tanh(Delta_phi) * np.pi
+            Phi = (Delta_phi - np.pi + Delta_phi[:,:1]) % (-2*np.pi) + np.pi
+            Phi[:,0] = Delta_phi[:,0]
+            
+            # get Px, Py, Pz
+            Xs = Pt * np.cos(Phi)
+            Ys = Pt * np.sin(Phi)
+            Zs = Pt * np.sinh(Eta)
+            Es = np.sqrt(self.masses**2 + Xs ** 2 + Ys ** 2 + Zs ** 2)
+            
+            out.append(Es)
+            out.append(Xs)
+            out.append(Ys)
+            out.append(Zs)
+            x_out = np.stack(out, axis=1)
+            
+            # x_out.shape: (b, 4, n_particles)
+            # transpose -> (b, n_particles, n_out)
+            # reshape   -> (b, 4 * n_particles)
+            shape_dim = 4 * self.n_particles
+            x_out = np.transpose(x_out, (0, 2, 1)).reshape(x_out.shape[0], shape_dim)
+            return x_out
+        
+        #--- Forward direction ----#
+        out = []
+        # x.shape:     (b, 4 * n_particles)
+        # reshape   -> (b, n_particles, 4)
+        # transpose -> (b, 4, n_particles)
+        x = np.reshape(x_or_z, (x_or_z.shape[0], self.n_particles, 4)).transpose(0, 2, 1)
+        
+        # get E, Px, Py, Pz
+        Es = x[:, 0, :]
+        Xs = x[:, 1, :]
+        Ys = x[:, 2, :]
+        Zs = x[:, 3, :]
+        
+        # get pt, eta, phi
+        Pp = np.sqrt(Xs **2 + Ys**2 + Zs**2)
+        Pt = np.sqrt(Xs **2 + Ys**2)
+        Eta = np.arctanh(Zs/Pp)
+        Phi = np.arctan2(Ys,Xs)
+        
+        # Get transformed pt
+        if self.is_disc_scaler:
+            Pt = np.log(Pt)
+        else:
+            # Cut does not work if generator missed the cut
+            Pt = np.log(Pt - self.ptcuts)
+        
+        # Get transformed delta phis
+        Delta_phi = (Phi - Phi[:,:1] + np.pi) % (2*np.pi) - np.pi
+        Delta_phi[:,0] = Phi[:,0]
+        Delta_phi = np.arctanh(Delta_phi/np.pi)
+        
+        # Add output
+        out.append(Pt)
+        out.append(Eta)
+        out.append(Delta_phi)
+        x_out = np.stack(out, axis=1)
+        
+        # x_out.shape: (b, 3, n_particles)
+        # transpose -> (b, n_particles, 3)
+        # reshape   -> (b, 3 * n_particles)
+        shape_dim = 3 * self.n_particles
+        x_out = np.transpose(x_out, (0, 2, 1)).reshape(x_out.shape[0], shape_dim)
+        
+        return x_out
+    
+    
+class EnlargedFeaturSpaceScaler(Scaler):
+    """Propreccing of LHC data (Heimel + augmented)
+    Uses the preprocessing suggested in arxiv:2110.13632.
+    Takes transformed 3-mom representation of final state particles
+    and adds additional augmented features, yielding
+    
+    d = K + m,   with K = 3n
+    
+    dimensions and features. Final output is mapped onto [0,1] 
+    , or centered and scaled (is_hypercube=False = Default).
+    It is important that at least the reparametrization of the
+    first `K` dimensions are bijective such that
+    x[:K] can be mapped back onto a (E, px, py, pz) parametrization.
     """
 
     def __init__(
@@ -390,6 +556,7 @@ class HeimelScaler(Scaler):
         if inverse:
             #--- Inverse direction ----#
             out = []
+            x_or_z = x_or_z[:, :3*self.n_particles] # cut out all augmented stuff
             # x.shape:     (b, 3 * n_particles )
             # reshape   -> (b, n_particles, 3)
             # transpose -> (b, 3, n_particles)
@@ -402,7 +569,7 @@ class HeimelScaler(Scaler):
             Phi = np.zeros_like(Delta_phi)
             
             # Get proper Pt and phi and eta
-            Pt = np.exp(Pt) + self.ptcuts
+            Pt = np.exp(Pt)
             Delta_phi = np.tanh(Delta_phi) * np.pi
             Phi = (Delta_phi - np.pi + Delta_phi[:,:1]) % (-2*np.pi) + np.pi
             Phi[:,0] = Delta_phi[:,0]
@@ -428,100 +595,6 @@ class HeimelScaler(Scaler):
         
         #--- Forward direction ----#
         out = []
-        # x.shape:     (b, 4 * n_particles)
-        # reshape   -> (b, n_particles, 4)
-        # transpose -> (b, 4, n_particles)
-        x = np.reshape(x_or_z, (x_or_z.shape[0], self.n_particles, 4)).transpose(0, 2, 1)
-        
-        # get E, Px, Py, Pz
-        Es = x[:, 0, :]
-        Xs = x[:, 1, :]
-        Ys = x[:, 2, :]
-        Zs = x[:, 3, :]
-        
-        # get pt, eta, phi
-        Pp = np.sqrt(Xs **2 + Ys**2 + Zs**2)
-        Pt = np.sqrt(Xs **2 + Ys**2)
-        Eta = np.arctanh(Zs/Pp)
-        Phi = np.arctan2(Ys,Xs)
-        
-        # Get transformed pt
-        Pt = np.log(Pt - self.ptcuts)
-        
-        # Get transformed delta phis
-        Delta_phi = (Phi - Phi[:,:1] + np.pi) % (2*np.pi) - np.pi
-        Delta_phi[:,0] = Phi[:,0]
-        Delta_phi = np.arctanh(Delta_phi/np.pi)
-        
-        # Add output
-        out.append(Pt)
-        out.append(Eta)
-        out.append(Delta_phi)
-        x_out = np.stack(out, axis=1)
-        
-        # x_out.shape: (b, 3, n_particles)
-        # transpose -> (b, n_particles, 3)
-        # reshape   -> (b, 3 * n_particles)
-        shape_dim = 3 * self.n_particles
-        x_out = np.transpose(x_out, (0, 2, 1)).reshape(x_out.shape[0], shape_dim)
-        
-        return x_out
-    
-class LaserScaler(Scaler):
-    """Propreccing of LHC data
-    Takes transformed 3-mom representation of final state particles including
-    some augmented features, yielding
-    
-    d = 3n + m,
-    
-    dimensions and features. Final output is mapped onto [0,1] 
-    , or centered and scaled (is_hypercube=False = Default).
-    """
-
-    def __init__(
-        self, 
-        e_had: float, 
-        n_particles: int, 
-        masses: list, 
-        ptcuts: list, 
-        is_hypercube: bool=False,
-        **kwargs
-    ):
-        """
-        Args:
-            e_had (float): hadronic center of mass energy.
-            nparticles (int): number of final state particles.
-            masses (list, optional): list of final state masses. Defaults to None.
-        """
-        super().__init__(is_hypercube)
-        self.e_had = e_had
-        self.masses = np.array(masses)[None,...]
-        self.ptcuts = np.array(ptcuts)[None,...]
-        assert self.masses.shape[1] == self.ptcuts.shape[1]
-        self.n_particles = n_particles
-       
-        self.fitted = False
-        self.feature_min = -e_had/2
-        self.feature_max = e_had/2
-    
-    def _reparam(self, x_or_z: np.ndarray, inverse: bool=False):
-        """
-        Makes reparametrization into
-            x = {pf1,..,pfn}
-        with
-            pf = {px, py, pz} and only pfn={pz}
-        
-        And transforms the shapes according to:
-            (batch_size, 4 * n_particles) 
-                <--inverse | forward--> 
-            (batch_size, 3 * n_particles - 2)
-
-        """
-        if inverse:
-            raise ValueError("No inverse available!! Only use it for the discriminator")
-        
-        #--- Forward direction ----#
-        out = []
         aug = []
         # x.shape:     (b, 4 * n_particles)
         # reshape   -> (b, n_particles, 4)
@@ -540,19 +613,26 @@ class LaserScaler(Scaler):
         Eta = np.arctanh(Zs/Pp)
         Phi = np.arctan2(Ys,Xs)
         
-        # Get transformed pt
+        # Get transformed pt - Does not work as disc only
         Pt = np.log(Pt)
         
-        # # Add output
+        # Get transformed delta phis
+        Delta_phi = (Phi - Phi[:,:1] + np.pi) % (2*np.pi) - np.pi
+        Delta_phi[:,0] = Phi[:,0]
+        Delta_phi = np.arctanh(Delta_phi/np.pi)
+        
+        # Add output
         out.append(Pt)
         out.append(Eta)
+        out.append(Delta_phi)
+        x_out = np.stack(out, axis=1)
         
         # Get transformed delta phis
         for i in range(1, self.n_particles):
             for j in range(i+1, self.n_particles):
-                dphi = np.fabs(Phi[:,[i]] - Phi[:,[j]])
-                dphimin = np.where(dphi>np.pi, 2.0 * np.pi - dphi, dphi)
-                dphimin = np.arctanh(dphimin/np.pi * 2 - 1)
+                dphi = np.fabs(Phi[:,[i]] - Phi[:,[j]]) # [0, 2Pi]
+                dphimin = np.where(dphi>np.pi, 2.0 * np.pi - dphi, dphi) # [0, Pi]
+                dphimin = np.arctanh(dphimin/np.pi * 2 - 1) # [-Pi, Pi] -> (-inf, inf)
                 aug.append(dphimin)
                 
         # Get transformed delta etas
@@ -569,20 +649,19 @@ class LaserScaler(Scaler):
                 dphimin = np.where(dphi>np.pi, 2.0 * np.pi - dphi, dphi)
                 dR = np.sqrt(dphimin ** 2 + deta ** 2)
                 aug.append(np.log(dR))
-    
-        n_out = len(out)
-        x_out = np.stack(out, axis=1)
+                
+        x_aug = np.concatenate(aug, axis=-1)
         
-        # x_out.shape: (b, features, n_particles)
-        # transpose -> (b, n_particles, features)
-        # reshape   -> (b, features * n_particles)
-        shape_dim =  n_out * self.n_particles
+        # x_out.shape: (b, 3, n_particles)
+        # transpose -> (b, n_particles, 3)
+        # reshape   -> (b, 3 * n_particles)
+        shape_dim = 3 * self.n_particles
         x_out = np.transpose(x_out, (0, 2, 1)).reshape(x_out.shape[0], shape_dim)
         
-        x_aug = np.concatenate(aug, axis=-1)
         return np.concatenate([x_out, x_aug], axis=-1)
     
-class RamboScaler(Scaler):
+    
+class MahamboScaler(Scaler):
     """Propreccing of LHC data"""
 
     def __init__(self, e_had: float, n_particles: int, masses: list = None, **kwargs):
@@ -621,3 +700,114 @@ class RamboScaler(Scaler):
         x = self.ps_mapping.map_inverse(x_or_z)
         
         return x
+    
+    
+class AugmentedMahamboFeatureScaler(Scaler):
+    """Propreccing of LHC data add some augmented features, yielding
+    
+    d = K + m, K = 3n-2
+    
+    dimensions and features. Final output is mapped onto [0,1] 
+    , or centered and scaled (is_hypercube=False = Default)."""
+
+    def __init__(
+        self, 
+        e_had: float, 
+        n_particles: int, 
+        masses: list = None, 
+        is_hypercube: bool=False, 
+        **kwargs,
+    ):
+        """
+        Args:
+            e_had (float): hadronic center of mass energy.
+            nparticles (int): number of final state particles.
+            masses (list, optional): list of final state masses. Defaults to None.
+        """
+        super().__init__(is_hypercube)
+        self.ps_mapping = RamboOnDietHadron(e_had, n_particles, masses)
+        self.e_had = e_had
+        self.masses = np.array(masses)[None,...]
+        self.n_particles = n_particles
+        
+        self.fitted = False if not is_hypercube else True
+        self.feature_min = 0
+        self.feature_max = 1
+
+    def _reparam(self, x_or_z: np.ndarray, inverse=False):
+        """
+        Performs mapping onto unit-hypercube.
+        According to rambo algorithm
+        
+        And transforms the shapes according to:
+            (batch_size, 4 * n_particles) 
+                <--inverse | forward--> 
+            (batch_size, 3 * n_particles - 2)
+       
+        """      
+        if inverse:
+            #--- Inverse direction ----#
+            # onto momenta
+            z = x_or_z[:, :3*self.n_particles-2]
+            if not self.is_hypercube:
+                z = expit(z)
+            x = self.ps_mapping.map(z)
+            return x
+
+        #--- Forward direction ----#
+        z = self.ps_mapping.map_inverse(x_or_z)
+        if not self.is_hypercube:
+            z = logit(z)
+        
+        aug = []
+        out = []
+        # x.shape:     (b, 4 * n_particles)
+        # reshape   -> (b, n_particles, 4)
+        # transpose -> (b, 4, n_particles)
+        x = np.reshape(x_or_z, (x_or_z.shape[0], self.n_particles, 4)).transpose(0, 2, 1)
+        
+        # get E, Px, Py, Pz
+        Xs = x[:, 1, :]
+        Ys = x[:, 2, :]
+        Zs = x[:, 3, :]
+        
+        Pp = np.sqrt(Xs **2 + Ys**2 + Zs**2)
+        Pt = np.sqrt(Xs **2 + Ys**2)
+        Eta = np.arctanh(Zs/Pp)
+        Phi = np.arctan2(Ys,Xs)
+        
+        # Get transformed pt
+        Pt = np.log(Pt)
+        x_out = Pt
+        
+        # Get transformed delta phis
+        for i in range(1, self.n_particles):
+            for j in range(i+1, self.n_particles):
+                dphi = np.fabs(Phi[:,[i]] - Phi[:,[j]])
+                dphimin = np.where(dphi>np.pi, 2.0 * np.pi - dphi, dphi)
+                dphimin = np.arctanh(dphimin/np.pi * 2 - 1)
+                aug.append(dphimin)
+                
+        # Get transformed delta etas
+        for i in range(1, self.n_particles):
+            for j in range(i+1, self.n_particles):
+                deta = np.abs(Eta[:,[i]] - Eta[:,[j]])
+                aug.append(np.log(deta))
+                
+        # Get transformed delta R
+        for i in range(1, self.n_particles):
+            for j in range(i+1, self.n_particles):
+                dphi = np.fabs(Phi[:,[i]] - Phi[:,[j]])
+                deta = np.abs(Eta[:,[i]] - Eta[:,[j]])
+                dphimin = np.where(dphi>np.pi, 2.0 * np.pi - dphi, dphi)
+                dR = np.sqrt(dphimin ** 2 + deta ** 2)
+                aug.append(np.log(dR))
+                
+        x_aug = np.concatenate(aug, axis=-1)
+        if self.is_hypercube:
+            x_out = expit(x_out)
+            x_aug = expit(x_aug)
+
+        all_out = np.concatenate([z, x_out, x_aug], axis=-1)
+        
+        return all_out

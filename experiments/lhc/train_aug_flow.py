@@ -8,7 +8,7 @@ import pandas as pd
 import time
 
 # Model
-from elsa.models.flow_model import AffineFlow, CubicFlow, RQSFlow
+from elsa.models.flow_model import AffineFlow, CubicFlow, RQSFlow, RealRQSFlow
 
 # Train utils
 from elsa.utils.load_data import Loader

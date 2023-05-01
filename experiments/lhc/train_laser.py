@@ -72,7 +72,7 @@ if conf.coupling == "affine":
         device=device,
     )
 elif conf.coupling == "rqs":
-    flow = RealRQSFlow(
+    flow = RealRQSFlow( # Real for HMC with Rambo
         in_dim=loader.shape,
         aug_dim=conf.aug_dim,
         config=conf,
@@ -111,7 +111,7 @@ model_path = os.path.join(log_dir, "flow_model.pth")
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
 
-if conf.train:
+if conf.train and conf.train_flow:
     F_loss_meter = AverageMeter()
     print("Training...")
     start_time = time.time()
@@ -189,7 +189,7 @@ D_loss_meter = AverageMeter()
 #
 d_model_path = os.path.join(log_dir, "d_model.pth")
 
-if conf.train:
+if conf.train and conf.train_disc:
     start_time = time.time()
     flow.model.eval() # make sure its not trained!
     for epoch in range(conf.disc_n_epochs):
@@ -256,39 +256,53 @@ else:
 
 print("Sampling...")
 size = conf.sample_size
-# N_CHAINS = 100
 
-# # Get refined samples
-# hamilton = HamiltonMCMC(
-#     flow, D, loader, latent_dim=loader.shape, L=30, eps=0.01, n_chains=N_CHAINS, burnin=500,
-# )
-# z, rate = hamilton.sample(loader.shape, size // N_CHAINS)
-# print("rate = ", rate)
+if conf.hmc:
+    N_CHAINS = 100
 
-# refined = flow.model.sample_refined(z)
-# refined = loader.gen_scaler.inverse_transform(refined.cpu().detach().numpy())
-# z = z.cpu().detach().numpy()
+    # Get refined samples
+    hamilton = HamiltonMCMC(
+        flow, D, loader, latent_dim=loader.shape, L=30, eps=0.01, n_chains=N_CHAINS, burnin=500,
+    )
+    z, rate = hamilton.sample(loader.shape, size // N_CHAINS)
+    print("rate = ", rate)
+
+    refined = flow.model.sample_refined(z)
+    refined = loader.gen_scaler.inverse_transform(refined.cpu().detach().numpy())
+    z = z.cpu().detach().numpy()
+    
+    # save refined latent
+    s3 =  pd.HDFStore(f"{log_dir}/latent.h5")
+    s3.append("data", pd.DataFrame(z))
+    s3.close()
+    
+    # save refined feature space
+    s4 =  pd.HDFStore(f"{log_dir}/refined.h5")
+    s4.append("data", pd.DataFrame(refined))  
+    s4.close()
+
 
 # get base samples and weights
 print("Get base samples and weights...")
 fake, z_base = flow.model.sample(size)
 if conf.disc_scaler is not None:
     fake = loader.gen_scaler.inverse_transform(fake.cpu().detach().numpy())
-    fake_reparam = loader.disc_scaler.transform(fake)
+    fake_reparam = np.copy(fake)
+    fake_reparam = loader.disc_scaler.transform(fake_reparam)
     fake_reparam = torch.tensor(fake_reparam)
 else:
-    fake_reparam = fake
+    fake_reparam = np.copy(fake)
 out_D = D(fake_reparam)
 weights = torch.exp(out_D)
 z_base = z_base.cpu().detach().numpy()
 weights = weights.cpu().detach().numpy()
 if conf.disc_scaler is None:
     fake = loader.gen_scaler.inverse_transform(fake.cpu().detach().numpy())
-    
+
 
 # get DCTR samples
 print("Pack DCTR samples...")
-dctr = np.concatenate((fake, fake_reparam.cpu().detach().numpy(), z_base, weights), axis=-1)
+dctr = np.concatenate((fake_reparam.cpu().detach().numpy(), z_base, weights), axis=-1)
 
 # # get real samples
 print("Get real samples...")
@@ -296,19 +310,13 @@ real = get_real_data(conf.datapath, conf.dataset, conf.test, size)
 
 # Save to hdf5
 s1 =  pd.HDFStore(f"{log_dir}/base.h5")
-# s2 =  pd.HDFStore(f"{log_dir}/latent.h5")
-# s3 =  pd.HDFStore(f"{log_dir}/refined.h5")
-s4 =  pd.HDFStore(f"{log_dir}/weighted.h5")
+s2 =  pd.HDFStore(f"{log_dir}/dctr.h5")
 
 s1.append("data", pd.DataFrame(fake))
-# s2.append("data", pd.DataFrame(z))
-# s3.append("data", pd.DataFrame(refined))
-s4.append("data", pd.DataFrame(dctr))
+s2.append("data", pd.DataFrame(dctr))
 
 s1.close()
-# s2.close()
-# s3.close()
-s4.close()
+s2.close()
 
 # Make plots
 print("Make the plots...")

@@ -14,14 +14,14 @@ ptcuts = [0.] + [20.0] * 3
 
 scale = None
 sample_size = int(1e6)
-gen_scaler = "Rambo" # Simple, Schumann, Momenta, Minrep, Heimel, Rambo
-disc_scaler = "Laser" # Laser and above
+gen_scaler = "Heimel" # FourMom, ThreeMomPlus, ThreeMom, MinRep, Precisesiast, Elfs, Mahambo, Amber
+disc_scaler = None # None or above
 
 #################
 # Flow Training #
 #################
 
-n_epochs = 51
+n_epochs = 50
 batch_size = 2000
 betas = (0.9, 0.999)
 
@@ -41,7 +41,7 @@ disc_n_epochs = 50
 
 disc_lr_scheduler = "onecycle" # or "exponential"
 disc_lr = 5e-4
-disc_max_lr = 5e-3
+disc_max_lr = 3e-3
 
 disc_gamma = 0.995
 disc_exp_decay = 0.1
@@ -72,6 +72,10 @@ show_interval = 1
 
 test = False
 train = True
+
+train_flow = True
+train_disc = True
+hmc = False
 
 save_model = True
 save_dir = './results'

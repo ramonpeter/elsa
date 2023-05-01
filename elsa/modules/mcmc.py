@@ -119,12 +119,34 @@ class HamiltonMCMC(nn.Module):
 		)
 		sample = []
 		accepted = 0
+		acc_batch = 0
 
 		# Burn in
 		for j in range(self.burnin):
-			q, _ = self.leapfrog_step(q)
-			if j % 1000 == 0:
-				print(j)
+			q, acc = self.leapfrog_step(q)
+			acc_batch += acc/self.n_chains
+			if j % 100 == 0:
+				if acc_batch < 10:
+					self.eps *=0.1
+				elif acc_batch < 20:
+					self.eps *=0.2
+				elif acc_batch < 40:
+					self.eps *=0.6
+				elif acc_batch < 50:
+					self.eps *=0.75
+				elif acc_batch < 60:
+					self.eps *=0.9
+				elif acc_batch < 65:
+					self.eps *=0.95
+				elif acc_batch < 70:
+					self.eps *=1.1
+				elif acc_batch > 70:
+					self.eps *=2
+				elif acc_batch > 80:
+					self.eps *=3
+				print(f"acceptance rate: {acc_batch} %")
+				acc_batch = 0
+				print(self.eps)
 		print("end burn in")
 
 		# actual sampling
@@ -132,8 +154,9 @@ class HamiltonMCMC(nn.Module):
 			q, acc = self.leapfrog_step(q)
 			accepted += acc
 			sample.append(q)
-			if i % 100 == 0:
-				print(accepted)
+			if (i+1) % 100 == 0:
+				print(f"sampled points: {i+1}/{n_samples}")
+				print(f"acceptance rate: {accepted/(self.n_chains*(i+1))*100} %")
 
 		acc_rate = accepted / (self.n_chains * n_samples)
 		return torch.cat(sample), acc_rate

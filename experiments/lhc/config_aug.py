@@ -3,10 +3,10 @@
 ##################
 
 datapath = '../../datasets/lhc/'
-dataset = 'wp_2j' # wp_2j, wp_3j
+dataset = 'wp_3j' # wp_2j, wp_3j
 e_had = 14000
-masses = [80.419] + [0.] * 2
-ptcuts = [0.] + [20.0] * 2
+masses = [80.419] + [0.] * 3
+ptcuts = [0.] + [20.0] * 3
 
 ######################
 # Data preprocessing #
@@ -14,20 +14,20 @@ ptcuts = [0.] + [20.0] * 2
 
 scale = None
 sample_size = int(1e6)
-gen_scaler = "Heimel" # Simple, Schumann, Momenta, Minrep, Heimel, Rambo
+gen_scaler = "Heimel" # FourMom, ThreeMomPlus, ThreeMom, MinRep, Precisesiast, Elfs, Mahambo, Amber
 disc_scaler = None
 
 ############
 # Training #
 ############
 
-n_epochs = 100
+n_epochs = 50
 batch_size = 2000
 betas = (0.9, 0.999)
 
-lr_scheduler = "onecycle" # or "exponential"
-lr = 1e-4
-max_lr = 1e-3
+lr_scheduler = "onecycle" # or "exponential" "onecycle"
+lr = 5e-4
+max_lr = 3e-3
 
 gamma = 0.995
 exp_decay = 0.1
@@ -41,7 +41,7 @@ coupling = "rqs"
 n_blocks = 14 # was 14
 n_units  = 80 # was 80
 n_layers = 2 # was 2
-aug_dim  = 0 # dims are 7/10/13 for 2j/3j/4j
+aug_dim  = 12 # dims are 7/10/13 for 2j/3j/4j
 
 ###################
 # Logging/preview #
