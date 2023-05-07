@@ -262,7 +262,7 @@ if conf.hmc:
 
     # Get refined samples
     hamilton = HamiltonMCMC(
-        flow, D, loader, latent_dim=loader.shape, L=30, eps=0.01, n_chains=N_CHAINS, burnin=500,
+        flow, D, loader, latent_dim=loader.shape, L=30, eps=0.01, n_chains=N_CHAINS, burnin=5000,
     )
     z, rate = hamilton.sample(loader.shape, size // N_CHAINS)
     print("rate = ", rate)
