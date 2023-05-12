@@ -1,4 +1,4 @@
-# ELSA: Enhanced Latent SpAces for improved collider simulations
+# ELSA - Enhanced Latent SpAces for improved collider simulations
 
 
 [![arXiv](http://img.shields.io/badge/arXiv-2305.xxxx-B31B1B.svg)](https://arxiv.org/abs/23??)
