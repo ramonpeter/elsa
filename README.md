@@ -1,7 +1,7 @@
 # ELSA - Enhanced Latent SpAces for improved collider simulations
 
 
-[![arXiv](http://img.shields.io/badge/arXiv-2305.xxxx-B31B1B.svg)](https://arxiv.org/abs/23??)
+[![arXiv](http://img.shields.io/badge/arXiv-2305.07696-B31B1B.svg)](https://arxiv.org/abs/2305.07696)
 
 ## Introduction
 
