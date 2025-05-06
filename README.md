@@ -7,7 +7,12 @@
 
 This repo contains the code for the **E**nhanced **L**atent **S**p**A**ces (ELSA) framework
 for neural network improved collider simulations. It is based on the LaSeR protocol [[1]](#laser) and
-further employs augmented flows [[2]](#survae). The code is provided in PyTorch. 
+further employs augmented flows [[2]](#survae). The code is provided in PyTorch.
+
+### Deprecation warning
+The mappings (Rambo etc) in this reporsitory are deprecated and have been superseded by the **MadSpace**
+framework: [Link to repo](https://github.com/madgraph-ml/madspace)
+
 
 ## Installation
 
